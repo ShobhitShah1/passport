@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(npx tsc:*)",
+      "Read(/c:\\Users\\shobh\\Downloads/**)",
+      "Read(/c:\\Users\\shobh\\Downloads/**)",
+      "Read(/c:\\Users\\shobh\\Downloads/**)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

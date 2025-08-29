@@ -82,29 +82,31 @@ export default function Card({
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 16,
+    borderRadius: 20,
     overflow: 'hidden',
   },
   gradientCard: {
-    borderRadius: 16,
+    borderRadius: 20,
   },
   
   // Variants
   default: {
     backgroundColor: Colors.dark.surface,
     borderWidth: 1,
-    borderColor: Colors.dark.border,
+    borderColor: Colors.dark.cardBorder,
   },
   elevated: {
     backgroundColor: Colors.dark.surface,
-    shadowColor: Colors.dark.primary,
+    borderWidth: 1,
+    borderColor: Colors.dark.cardBorder,
+    shadowColor: 'rgba(0, 212, 255, 0.3)',
     shadowOffset: {
       width: 0,
-      height: 4,
+      height: 6,
     },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 10,
   },
   gradient: {
     backgroundColor: 'transparent',

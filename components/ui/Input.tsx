@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from "react";
 import {
   View,
   TextInput,
@@ -8,18 +8,18 @@ import {
   TouchableOpacity,
   ViewStyle,
   TextStyle,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import Colors from '../../constants/Colors';
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import Colors from "../../constants/Colors";
 
-interface InputProps extends Omit<TextInputProps, 'style'> {
+interface InputProps extends Omit<TextInputProps, "style"> {
   label?: string;
   error?: string;
   helperText?: string;
   leftIcon?: keyof typeof Ionicons.glyphMap;
   rightIcon?: keyof typeof Ionicons.glyphMap;
   onRightIconPress?: () => void;
-  variant?: 'default' | 'password';
+  variant?: "default" | "password";
   containerStyle?: ViewStyle;
   inputStyle?: TextStyle;
   showPasswordToggle?: boolean;
@@ -32,80 +32,65 @@ export default function Input({
   leftIcon,
   rightIcon,
   onRightIconPress,
-  variant = 'default',
+  variant = "default",
   containerStyle,
   inputStyle,
   showPasswordToggle = false,
   secureTextEntry,
   ...props
 }: InputProps) {
-  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
-  const [isFocused, setIsFocused] = useState(false);
+  const [isPasswordVisible, setIsPasswordVisible] = React.useState(false);
 
-  const isPasswordField = variant === 'password' || showPasswordToggle;
+  const isPasswordField = variant === "password" || showPasswordToggle;
   const shouldShowPassword = isPasswordField && !isPasswordVisible;
 
-  const inputContainerStyles = [
-    styles.inputContainer,
-    isFocused && styles.focused,
-    error && styles.error,
-  ];
-
-  const textInputStyles = [
-    styles.input,
-    leftIcon && styles.inputWithLeftIcon,
-    (rightIcon || isPasswordField) && styles.inputWithRightIcon,
-    inputStyle,
-  ];
+  const togglePasswordVisibility = () => {
+    setIsPasswordVisible(prev => !prev);
+  };
 
   return (
     <View style={[styles.container, containerStyle]}>
       {label && (
-        <Text style={[styles.label, error && styles.labelError]}>
-          {label}
-        </Text>
+        <Text style={[styles.label, error && styles.labelError]}>{label}</Text>
       )}
-      
-      <View style={inputContainerStyles}>
+
+      <View style={[styles.inputContainer, error && styles.error]}>
         {leftIcon && (
           <Ionicons
             name={leftIcon}
             size={20}
-            color={isFocused ? Colors.dark.primary : Colors.dark.textSecondary}
+            color={Colors.dark.textSecondary}
             style={styles.leftIcon}
           />
         )}
-        
+
         <TextInput
           {...props}
-          style={textInputStyles}
+          style={[
+            styles.input,
+            leftIcon && styles.inputWithLeftIcon,
+            (rightIcon || isPasswordField) && styles.inputWithRightIcon,
+            inputStyle,
+          ]}
           secureTextEntry={shouldShowPassword || secureTextEntry}
           placeholderTextColor={Colors.dark.textMuted}
           selectionColor={Colors.dark.primary}
-          onFocus={(e) => {
-            setIsFocused(true);
-            props.onFocus?.(e);
-          }}
-          onBlur={(e) => {
-            setIsFocused(false);
-            props.onBlur?.(e);
-          }}
         />
-        
+
         {isPasswordField && (
           <TouchableOpacity
-            onPress={() => setIsPasswordVisible(!isPasswordVisible)}
+            onPress={togglePasswordVisibility}
             style={styles.rightIcon}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <Ionicons
-              name={isPasswordVisible ? 'eye-off' : 'eye'}
+              name={isPasswordVisible ? "eye-off" : "eye"}
               size={20}
               color={Colors.dark.textSecondary}
             />
           </TouchableOpacity>
         )}
-        
+
         {rightIcon && !isPasswordField && (
           <TouchableOpacity
             onPress={onRightIconPress}
@@ -115,12 +100,12 @@ export default function Input({
             <Ionicons
               name={rightIcon}
               size={20}
-              color={isFocused ? Colors.dark.primary : Colors.dark.textSecondary}
+              color={Colors.dark.textSecondary}
             />
           </TouchableOpacity>
         )}
       </View>
-      
+
       {(error || helperText) && (
         <Text style={[styles.helperText, error && styles.errorText]}>
           {error || helperText}
@@ -132,45 +117,46 @@ export default function Input({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 16,
+    marginBottom: 12,
   },
   label: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: "600",
     color: Colors.dark.text,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   labelError: {
     color: Colors.dark.error,
   },
   inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: Colors.dark.surface,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: Colors.dark.border,
-    paddingHorizontal: 16,
-    minHeight: 52,
-  },
-  focused: {
-    borderColor: Colors.dark.primary,
-    backgroundColor: Colors.dark.surfaceVariant,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Colors.dark.inputBorder,
+    paddingHorizontal: 14,
+    minHeight: 44,
   },
   error: {
     borderColor: Colors.dark.error,
+    shadowColor: Colors.dark.error,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
   input: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 15,
     color: Colors.dark.text,
-    paddingVertical: 14,
+    paddingVertical: 12,
   },
   inputWithLeftIcon: {
-    marginLeft: 12,
+    marginLeft: 10,
   },
   inputWithRightIcon: {
-    marginRight: 12,
+    marginRight: 10,
   },
   leftIcon: {
     marginRight: 0,
@@ -180,10 +166,10 @@ const styles = StyleSheet.create({
     marginLeft: 0,
   },
   helperText: {
-    fontSize: 12,
+    fontSize: 11,
     color: Colors.dark.textSecondary,
-    marginTop: 6,
-    marginLeft: 4,
+    marginTop: 4,
+    marginLeft: 2,
   },
   errorText: {
     color: Colors.dark.error,

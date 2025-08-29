@@ -1,95 +1,34 @@
-import React, { useState, useEffect, useMemo } from "react";
+import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
+import React, { useMemo, useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  StatusBar,
   Alert,
   Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
-import { router } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { BlurView } from "expo-blur";
 import Animated, {
-  useSharedValue,
   useAnimatedStyle,
-  withTiming,
-  withRepeat,
-  withSequence,
-  Easing,
+  useSharedValue,
   withSpring,
-  cancelAnimation,
+  withTiming,
+  withSequence,
 } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Button from "@/components/ui/Button";
-import Input from "@/components/ui/Input";
-import PasswordStrengthIndicator from "@/components/ui/PasswordStrengthIndicator";
+import PinKeypad from "@/components/ui/PinKeypad";
 import { setupMasterPassword } from "@/services/storage/secureStorage";
-import {
-  calculatePasswordStrength,
-  calculateEntropy,
-} from "@/services/password/generator";
 
-// --- Updated Color Palette ---
-const Colors = {
-  dark: {
-    background: "#02000a",
-    surface: "#1a1a1b",
-    text: "#f0f2f5",
-    textSecondary: "#a3a3a3",
-    textMuted: "#666666",
-    primary: "#00d4ff",
-    neonGreen: "#00ff88",
-    error: "#ff4757",
-    border: "#333333",
-    glassBorder: "rgba(255, 255, 255, 0.15)",
-    glassBackground: "rgba(20, 20, 22, 0.6)",
-  },
-};
+import Colors from "@/constants/Colors";
 
-// --- Background Animation Components ---
-const TwinklingStar = ({ style, size }: { style: object; size: number }) => {
-  const opacity = useSharedValue(0);
-  useEffect(() => {
-    const randomDelay = Math.random() * 5000;
-    const timer = setTimeout(() => {
-      opacity.value = withRepeat(
-        withSequence(
-          withTiming(0.8 + Math.random() * 0.2, {
-            duration: 1500 + Math.random() * 2000,
-          }),
-          withTiming(0.3 + Math.random() * 0.2, {
-            duration: 1500 + Math.random() * 2000,
-          })
-        ),
-        -1,
-        true
-      );
-    }, randomDelay);
-    return () => {
-      clearTimeout(timer);
-      cancelAnimation(opacity);
-    };
-  }, [opacity]);
-
-  const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
-  return (
-    <Animated.View
-      style={[
-        styles.star,
-        { width: size, height: size, borderRadius: size / 2 },
-        style,
-        animatedStyle,
-      ]}
-    />
-  );
-};
-
-const ParallaxStarfield = () => {
+// --- Static Background Components ---
+const ParallaxStarfield = React.memo(() => {
   const stars = useMemo(
     () =>
-      Array.from({ length: 40 }, (_, i) => ({
+      Array.from({ length: 15 }, (_, i) => ({
         key: `s1-${i}`,
         left: `${Math.random() * 100}%`,
         top: `${Math.random() * 100}%`,
@@ -101,113 +40,105 @@ const ParallaxStarfield = () => {
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       {stars.map((star) => (
-        <TwinklingStar
+        <View
           key={star.key}
-          style={{ left: star.left, top: star.top }}
-          size={star.size}
+          style={[
+            styles.star,
+            {
+              left: star.left as any,
+              top: star.top as any,
+              width: star.size,
+              height: star.size,
+              borderRadius: star.size / 2,
+              opacity: 0.5,
+            },
+          ]}
         />
       ))}
     </View>
   );
-};
+});
 
-// --- Animated Requirement Item ---
-const RequirementItem = ({ text, met }: { text: string; met: boolean }) => {
-  const scale = useSharedValue(0);
-  const checkmarkOpacity = useSharedValue(0);
-
-  useEffect(() => {
-    if (met) {
-      scale.value = withSpring(1, { damping: 12, stiffness: 200 });
-      checkmarkOpacity.value = withTiming(1);
-    } else {
-      scale.value = withTiming(0);
-      checkmarkOpacity.value = withTiming(0);
-    }
-  }, [met]);
-
-  const checkmarkAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-    opacity: checkmarkOpacity.value,
-  }));
-
-  const textAnimatedStyle = useAnimatedStyle(() => ({
-    color: withTiming(met ? Colors.dark.textSecondary : Colors.dark.textMuted, {
-      duration: 300,
-    }),
-  }));
-
-  return (
-    <View style={styles.requirementItem}>
-      <View style={styles.requirementIconContainer}>
-        <Ionicons
-          name={"ellipse-outline"}
-          size={18}
-          color={Colors.dark.textMuted}
-        />
-        <Animated.View
-          style={[StyleSheet.absoluteFill, checkmarkAnimatedStyle]}
-        >
-          <Ionicons
-            name={"checkmark-circle"}
-            size={18}
-            color={Colors.dark.neonGreen}
-          />
-        </Animated.View>
-      </View>
-      <Animated.Text style={[styles.requirementText, textAnimatedStyle]}>
-        {text}
-      </Animated.Text>
-    </View>
-  );
-};
 
 // --- Main Setup Screen ---
 export default function SetupScreen() {
-  const [masterPassword, setMasterPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const [pin, setPin] = useState("");
+  const [confirmPin, setConfirmPin] = useState("");
+  const [step, setStep] = useState<'create' | 'confirm'>('create');
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
   const insets = useSafeAreaInsets();
 
-  const contentTranslateY = useSharedValue(50);
-  const contentOpacity = useSharedValue(0);
-  const orbitRotation = useSharedValue(0);
-  const glowOpacity = useSharedValue(0.4);
   const buttonScale = useSharedValue(1);
+  const shakeAnimation = useSharedValue(0);
   const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-  useEffect(() => {
-    contentTranslateY.value = withSpring(0, { damping: 15, stiffness: 100 });
-    contentOpacity.value = withTiming(1, { duration: 500 });
-    orbitRotation.value = withRepeat(
-      withTiming(360, { duration: 30000, easing: Easing.linear }),
-      -1
-    );
-    glowOpacity.value = withRepeat(
-      withSequence(
-        withTiming(0.7, { duration: 3000, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0.4, { duration: 3000, easing: Easing.inOut(Easing.ease) })
-      ),
-      -1,
-      true
-    );
-  }, []);
+  const canProceed = pin.length === 4;
 
-  const passwordsMatch =
-    masterPassword === confirmPassword && confirmPassword.length > 0;
-  const passwordStrength = calculatePasswordStrength(masterPassword);
-  const entropy = calculateEntropy(masterPassword, 95);
-  const canProceed = masterPassword.length >= 8 && passwordsMatch;
+  const handleDigitPress = (digit: string) => {
+    if (step === 'create') {
+      if (pin.length < 4) {
+        const newPin = pin + digit;
+        setPin(newPin);
+        setError("");
+      }
+    } else {
+      if (confirmPin.length < 4) {
+        const newConfirmPin = confirmPin + digit;
+        setConfirmPin(newConfirmPin);
+        setError("");
+        
+        if (newConfirmPin.length === 4) {
+          setTimeout(() => validatePins(pin, newConfirmPin), 300);
+        }
+      }
+    }
+  };
 
-  const handleSetup = async () => {
-    if (!canProceed) return;
+  const handleBackspace = () => {
+    if (step === 'create') {
+      setPin(prev => prev.slice(0, -1));
+    } else {
+      setConfirmPin(prev => prev.slice(0, -1));
+    }
+    setError("");
+  };
+
+  const validatePins = (originalPin: string, confirmationPin: string) => {
+    if (originalPin === confirmationPin) {
+      handleSetup(originalPin);
+    } else {
+      setError("PINs don't match. Try again.");
+      shakeAnimation.value = withSequence(
+        withTiming(-10, { duration: 50 }),
+        withTiming(10, { duration: 50 }),
+        withTiming(-10, { duration: 50 }),
+        withTiming(10, { duration: 50 }),
+        withTiming(0, { duration: 50 })
+      );
+      setTimeout(() => {
+        setConfirmPin("");
+        setStep('create');
+        setPin("");
+      }, 1500);
+    }
+  };
+
+  const proceedToConfirm = () => {
+    if (pin.length === 4) {
+      setStep('confirm');
+    }
+  };
+
+  const handleSetup = async (masterPin: string) => {
     setIsLoading(true);
     try {
-      const success = await setupMasterPassword(masterPassword);
+      // Use PIN as master password for now - in production you'd want to derive a proper password
+      const success = await setupMasterPassword(masterPin);
       if (success) {
         router.replace("/(tabs)");
       } else {
-        Alert.alert("Setup Failed", "Failed to set up your master password.");
+        Alert.alert("Setup Failed", "Failed to set up your master PIN.");
       }
     } catch (error) {
       Alert.alert("Error", "An unexpected error occurred.");
@@ -216,40 +147,27 @@ export default function SetupScreen() {
     }
   };
 
-  const contentAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: contentOpacity.value,
-    transform: [{ translateY: contentTranslateY.value }],
-  }));
-  const orbitAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${orbitRotation.value}deg` }],
-  }));
-  const glowAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: glowOpacity.value,
-  }));
+  const handleButtonPress = () => {
+    handleSetup(pin);
+  };
+
   const buttonAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: buttonScale.value }],
   }));
 
+  const shakeStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: shakeAnimation.value }],
+  }));
+
   return (
     <View style={styles.container}>
-      <StatusBar
-        barStyle="light-content"
-        backgroundColor={Colors.dark.background}
-      />
       <ParallaxStarfield />
 
-      <Animated.ScrollView
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingTop: insets.top + 24, paddingBottom: 150 },
-        ]}
-        showsVerticalScrollIndicator={false}
-        style={contentAnimatedStyle}
-      >
+      <View style={[styles.content, { paddingTop: insets.top + 24 }]}>
         <View style={styles.header}>
           <View style={styles.iconContainer}>
-            <Animated.View style={[styles.iconOrbit, orbitAnimatedStyle]} />
-            <Animated.View style={[styles.iconGlow, glowAnimatedStyle]} />
+            <View style={styles.iconOrbit} />
+            <View style={styles.iconGlow} />
             <View style={styles.iconPlanet}>
               <Ionicons
                 name="shield-checkmark"
@@ -260,73 +178,55 @@ export default function SetupScreen() {
           </View>
           <Text style={styles.title}>Secure Your Vault</Text>
           <Text style={styles.subtitle}>
-            Create a master password to protect your digital life.
+            {step === 'create' 
+              ? 'Create a 4-digit PIN to protect your passwords'
+              : 'Confirm your PIN'
+            }
           </Text>
         </View>
 
-        <BlurView intensity={25} tint="dark" style={styles.glassPanel}>
-          <Input
-            label="Master Password"
-            value={masterPassword}
-            onChangeText={setMasterPassword}
-            variant="password"
-            showPasswordToggle
-            leftIcon="key-outline"
+        <Animated.View style={[styles.pinSection, shakeStyle]}>
+          <PinKeypad
+            pin={step === 'create' ? pin : confirmPin}
+            onDigitPress={handleDigitPress}
+            onBackspace={handleBackspace}
+            maxLength={4}
           />
-          {masterPassword.length > 0 && (
-            <PasswordStrengthIndicator
-              strength={passwordStrength}
-              entropy={entropy}
-            />
-          )}
-          <Input
-            label="Confirm Master Password"
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            variant="password"
-            showPasswordToggle
-            leftIcon="key-outline"
-            error={
-              confirmPassword.length > 0 && !passwordsMatch
-                ? "Passwords do not match"
-                : undefined
-            }
-          />
-        </BlurView>
 
-        <View style={styles.requirementsContainer}>
-          <RequirementItem
-            text="At least 8 characters long"
-            met={masterPassword.length >= 8}
-          />
-          <RequirementItem
-            text="Contains uppercase & lowercase"
-            met={/[a-z]/.test(masterPassword) && /[A-Z]/.test(masterPassword)}
-          />
-          <RequirementItem
-            text="Contains numbers"
-            met={/\d/.test(masterPassword)}
-          />
-          <RequirementItem
-            text="Contains special characters"
-            met={/[^A-Za-z0-9]/.test(masterPassword)}
-          />
-        </View>
-      </Animated.ScrollView>
+          {error && (
+            <View style={styles.errorContainer}>
+              <Ionicons name="warning-outline" size={16} color={Colors.dark.error} />
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          )}
+        </Animated.View>
+
+        {step === 'create' && pin.length === 4 && (
+          <View style={styles.continueContainer}>
+            <Button
+              title="Continue"
+              onPress={proceedToConfirm}
+              variant="primary"
+              fullWidth
+              style={styles.continueButton}
+            />
+          </View>
+        )}
+      </View>
 
       <View
         style={[styles.buttonContainer, { paddingBottom: insets.bottom || 24 }]}
       >
         <AnimatedPressable
-          onPress={handleSetup}
+          onPress={handleButtonPress}
           disabled={!canProceed || isLoading}
           onPressIn={() => (buttonScale.value = withSpring(0.95))}
           onPressOut={() => (buttonScale.value = withSpring(1))}
           style={buttonAnimatedStyle}
         >
           <Button
-            title="Create Master Password"
-            onPress={handleSetup}
+            title="Create Master PIN"
+            onPress={handleButtonPress}
             disabled={!canProceed}
             loading={isLoading}
             variant="primary"
@@ -348,13 +248,15 @@ const styles = StyleSheet.create({
     position: "absolute",
     backgroundColor: "white",
   },
-  scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: 20,
+  content: {
+    flex: 1,
+    paddingHorizontal: 32,
+    justifyContent: "center",
+    alignItems: "center",
   },
   header: {
     alignItems: "center",
-    marginBottom: 32,
+    marginBottom: 60,
   },
   iconContainer: {
     width: 120,
@@ -362,7 +264,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     position: "relative",
-    marginBottom: 24,
+    marginBottom: 32,
   },
   iconOrbit: {
     width: 120,
@@ -379,6 +281,7 @@ const styles = StyleSheet.create({
     height: 90,
     borderRadius: 45,
     backgroundColor: Colors.dark.primary,
+    opacity: 0.5,
   },
   iconPlanet: {
     width: 80,
@@ -391,47 +294,44 @@ const styles = StyleSheet.create({
     borderColor: Colors.dark.primary + "60",
   },
   title: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: "700",
     color: Colors.dark.text,
     marginBottom: 8,
     textAlign: "center",
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 18,
     color: Colors.dark.textSecondary,
     textAlign: "center",
     lineHeight: 24,
     maxWidth: "90%",
   },
-  glassPanel: {
-    backgroundColor: Colors.dark.glassBackground,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: Colors.dark.glassBorder,
-    padding: 20,
-    gap: 20,
-    overflow: "hidden",
-    marginBottom: 28,
+  pinSection: {
+    alignItems: "center",
+    marginBottom: 40,
   },
-  requirementsContainer: {
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 16,
-    gap: 16,
+    paddingVertical: 8,
+    backgroundColor: Colors.dark.error + '20',
+    borderRadius: 16,
+    marginTop: 20,
+    gap: 8,
   },
-  requirementItem: {
-    flexDirection: "row",
-    alignItems: "center",
+  errorText: {
+    color: Colors.dark.error,
+    fontSize: 14,
+    fontWeight: '500',
   },
-  requirementIconContainer: {
-    width: 18,
-    height: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 16,
+  continueContainer: {
+    width: '100%',
+    paddingHorizontal: 20,
   },
-  requirementText: {
-    fontSize: 15,
-    flex: 1,
+  continueButton: {
+    marginBottom: 20,
   },
   buttonContainer: {
     position: "absolute",

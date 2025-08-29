@@ -1,11 +1,13 @@
 import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
 import { AppState, AppAction, UserSettings } from '../types';
-import { loadPasswords, loadSettings, isAppSetup } from '../services/storage/secureStorage';
+import { loadPasswords, loadSecureNotes, loadSettings, isAppSetup } from '../services/storage/secureStorage';
 
 const initialState: AppState = {
   isAuthenticated: false,
   isLocked: true,
+  masterPassword: undefined,
   passwords: [],
+  secureNotes: [],
   installedApps: [],
   settings: {
     autoLockTimeout: 5,
@@ -32,8 +34,9 @@ function appReducer(state: AppState, action: AppAction): AppState {
     case 'AUTHENTICATE':
       return {
         ...state,
-        isAuthenticated: action.payload,
-        isLocked: !action.payload,
+        isAuthenticated: action.payload.isAuthenticated,
+        isLocked: !action.payload.isAuthenticated,
+        masterPassword: action.payload.masterPassword,
         error: null,
       };
     
@@ -42,7 +45,9 @@ function appReducer(state: AppState, action: AppAction): AppState {
         ...state,
         isAuthenticated: false,
         isLocked: true,
+        masterPassword: undefined,
         passwords: [], // Clear sensitive data when locked
+        secureNotes: [], // Clear sensitive data when locked
       };
     
     case 'SET_PASSWORDS':
@@ -69,6 +74,32 @@ function appReducer(state: AppState, action: AppAction): AppState {
       return {
         ...state,
         passwords: state.passwords.filter(password => password.id !== action.payload),
+      };
+    
+    case 'SET_SECURE_NOTES':
+      return {
+        ...state,
+        secureNotes: action.payload,
+      };
+    
+    case 'ADD_SECURE_NOTE':
+      return {
+        ...state,
+        secureNotes: [...state.secureNotes, action.payload],
+      };
+    
+    case 'UPDATE_SECURE_NOTE':
+      return {
+        ...state,
+        secureNotes: state.secureNotes.map(note =>
+          note.id === action.payload.id ? action.payload : note
+        ),
+      };
+    
+    case 'DELETE_SECURE_NOTE':
+      return {
+        ...state,
+        secureNotes: state.secureNotes.filter(note => note.id !== action.payload),
       };
     
     case 'SET_INSTALLED_APPS':
@@ -152,7 +183,7 @@ export function AppProvider({ children }: AppProviderProps) {
       // Load user data with the master password
       await loadUserData(masterPassword);
       
-      dispatch({ type: 'AUTHENTICATE', payload: true });
+      dispatch({ type: 'AUTHENTICATE', payload: { isAuthenticated: true, masterPassword } });
       return true;
     } catch (error) {
       dispatch({ type: 'SET_ERROR', payload: 'Failed to authenticate' });
@@ -171,6 +202,10 @@ export function AppProvider({ children }: AppProviderProps) {
       // Load passwords
       const passwords = await loadPasswords(masterPassword);
       dispatch({ type: 'SET_PASSWORDS', payload: passwords });
+
+      // Load secure notes
+      const secureNotes = await loadSecureNotes(masterPassword);
+      dispatch({ type: 'SET_SECURE_NOTES', payload: secureNotes });
 
       // Load settings
       const settings = await loadSettings();

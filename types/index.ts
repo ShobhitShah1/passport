@@ -1,5 +1,14 @@
 // Core types for the password manager application
 
+export interface AuthField {
+  id: string;
+  label: string;
+  value: string;
+  type: AuthFieldType;
+  isRequired: boolean;
+  isEncrypted: boolean;
+}
+
 export interface Password {
   id: string;
   appName: string;
@@ -8,12 +17,24 @@ export interface Password {
   password: string;
   url?: string;
   notes?: string;
+  customFields: AuthField[];
   createdAt: Date;
   updatedAt: Date;
   lastUsed?: Date;
   strength: PasswordStrength;
   isFavorite: boolean;
   tags: string[];
+}
+
+export interface SecureNote {
+  id: string;
+  title: string;
+  content: string;
+  category: string;
+  tags: string[];
+  isFavorite: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface InstalledApp {
@@ -48,6 +69,19 @@ export enum PasswordStrength {
   MODERATE = 2,
   STRONG = 3,
   VERY_STRONG = 4,
+}
+
+export enum AuthFieldType {
+  TEXT = 'text',
+  EMAIL = 'email',
+  PASSWORD = 'password',
+  URL = 'url',
+  PHONE = 'phone',
+  PIN = 'pin',
+  SECRET_QUESTION = 'secret_question',
+  TWO_FA_CODE = 'two_fa_code',
+  API_KEY = 'api_key',
+  NOTES = 'notes',
 }
 
 export enum AppCategory {
@@ -89,7 +123,9 @@ export interface SecurityAnalysis {
 export interface AppState {
   isAuthenticated: boolean;
   isLocked: boolean;
+  masterPassword?: string;
   passwords: Password[];
+  secureNotes: SecureNote[];
   installedApps: InstalledApp[];
   settings: UserSettings;
   searchQuery: string;
@@ -99,12 +135,16 @@ export interface AppState {
 }
 
 export type AppAction =
-  | { type: 'AUTHENTICATE'; payload: boolean }
+  | { type: 'AUTHENTICATE'; payload: { isAuthenticated: boolean; masterPassword?: string } }
   | { type: 'LOCK_APP' }
   | { type: 'SET_PASSWORDS'; payload: Password[] }
   | { type: 'ADD_PASSWORD'; payload: Password }
   | { type: 'UPDATE_PASSWORD'; payload: Password }
   | { type: 'DELETE_PASSWORD'; payload: string }
+  | { type: 'SET_SECURE_NOTES'; payload: SecureNote[] }
+  | { type: 'ADD_SECURE_NOTE'; payload: SecureNote }
+  | { type: 'UPDATE_SECURE_NOTE'; payload: SecureNote }
+  | { type: 'DELETE_SECURE_NOTE'; payload: string }
   | { type: 'SET_INSTALLED_APPS'; payload: InstalledApp[] }
   | { type: 'UPDATE_SETTINGS'; payload: Partial<UserSettings> }
   | { type: 'SET_SEARCH_QUERY'; payload: string }

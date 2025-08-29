@@ -1,5 +1,5 @@
 import * as SecureStore from 'expo-secure-store';
-import { Password, UserSettings, StoredData } from '../../types';
+import { Password, SecureNote, UserSettings, StoredData } from '../../types';
 import { encrypt, decrypt, createEncryptionKey, hashPassword, verifyPassword, generateSalt } from '../encryption/crypto';
 
 // Storage keys
@@ -7,6 +7,7 @@ const STORAGE_KEYS = {
   MASTER_PASSWORD_HASH: 'master_password_hash',
   MASTER_PASSWORD_SALT: 'master_password_salt',
   PASSWORDS: 'encrypted_passwords',
+  SECURE_NOTES: 'encrypted_secure_notes',
   SETTINGS: 'user_settings',
   ENCRYPTION_SALT: 'encryption_salt',
   ENCRYPTION_IV: 'encryption_iv',
@@ -107,13 +108,22 @@ export async function changeMasterPassword(
     
     // Get all encrypted data
     const encryptedPasswords = await SecureStore.getItemAsync(STORAGE_KEYS.PASSWORDS);
+    const encryptedNotes = await SecureStore.getItemAsync(STORAGE_KEYS.SECURE_NOTES);
     let passwords: Password[] = [];
+    let secureNotes: SecureNote[] = [];
     
     if (encryptedPasswords) {
       // Decrypt with current password
       const storedData: StoredData = JSON.parse(encryptedPasswords);
       const decryptedData = await decrypt(storedData, currentPassword);
       passwords = JSON.parse(decryptedData);
+    }
+    
+    if (encryptedNotes) {
+      // Decrypt with current password
+      const storedData: StoredData = JSON.parse(encryptedNotes);
+      const decryptedData = await decrypt(storedData, currentPassword);
+      secureNotes = JSON.parse(decryptedData);
     }
     
     // Generate new salt and hash for new password
@@ -125,6 +135,12 @@ export async function changeMasterPassword(
       const encryptionKey = await createEncryptionKey(newPassword);
       const newEncryptedData = await encrypt(JSON.stringify(passwords), encryptionKey);
       await SecureStore.setItemAsync(STORAGE_KEYS.PASSWORDS, JSON.stringify(newEncryptedData));
+    }
+    
+    if (secureNotes.length > 0) {
+      const encryptionKey = await createEncryptionKey(newPassword);
+      const newEncryptedData = await encrypt(JSON.stringify(secureNotes), encryptionKey);
+      await SecureStore.setItemAsync(STORAGE_KEYS.SECURE_NOTES, JSON.stringify(newEncryptedData));
     }
     
     // Update stored password hash and salt
@@ -179,6 +195,46 @@ export async function loadPasswords(masterPassword: string): Promise<Password[]>
 }
 
 /**
+ * Save secure notes to secure storage
+ */
+export async function saveSecureNotes(
+  secureNotes: SecureNote[],
+  masterPassword: string
+): Promise<boolean> {
+  try {
+    const encryptionKey = await createEncryptionKey(masterPassword);
+    const encryptedData = await encrypt(JSON.stringify(secureNotes), encryptionKey);
+    
+    await SecureStore.setItemAsync(STORAGE_KEYS.SECURE_NOTES, JSON.stringify(encryptedData));
+    return true;
+  } catch (error) {
+    console.error('Error saving secure notes:', error);
+    return false;
+  }
+}
+
+/**
+ * Load secure notes from secure storage
+ */
+export async function loadSecureNotes(masterPassword: string): Promise<SecureNote[]> {
+  try {
+    const encryptedNotes = await SecureStore.getItemAsync(STORAGE_KEYS.SECURE_NOTES);
+    
+    if (!encryptedNotes) {
+      return [];
+    }
+    
+    const storedData: StoredData = JSON.parse(encryptedNotes);
+    const decryptedData = await decrypt(storedData, masterPassword);
+    
+    return JSON.parse(decryptedData);
+  } catch (error) {
+    console.error('Error loading secure notes:', error);
+    return [];
+  }
+}
+
+/**
  * Save user settings
  */
 export async function saveSettings(settings: UserSettings): Promise<boolean> {
@@ -218,6 +274,7 @@ export async function clearAllData(): Promise<boolean> {
       SecureStore.deleteItemAsync(STORAGE_KEYS.MASTER_PASSWORD_HASH),
       SecureStore.deleteItemAsync(STORAGE_KEYS.MASTER_PASSWORD_SALT),
       SecureStore.deleteItemAsync(STORAGE_KEYS.PASSWORDS),
+      SecureStore.deleteItemAsync(STORAGE_KEYS.SECURE_NOTES),
       SecureStore.deleteItemAsync(STORAGE_KEYS.SETTINGS),
       SecureStore.deleteItemAsync(STORAGE_KEYS.ENCRYPTION_SALT),
       SecureStore.deleteItemAsync(STORAGE_KEYS.ENCRYPTION_IV),
@@ -249,10 +306,12 @@ export async function isAppSetup(): Promise<boolean> {
 export async function exportEncryptedData(): Promise<string | null> {
   try {
     const encryptedPasswords = await SecureStore.getItemAsync(STORAGE_KEYS.PASSWORDS);
+    const encryptedNotes = await SecureStore.getItemAsync(STORAGE_KEYS.SECURE_NOTES);
     const settings = await SecureStore.getItemAsync(STORAGE_KEYS.SETTINGS);
     
     const exportData = {
       passwords: encryptedPasswords ? JSON.parse(encryptedPasswords) : null,
+      secureNotes: encryptedNotes ? JSON.parse(encryptedNotes) : null,
       settings: settings ? JSON.parse(settings) : null,
       exportDate: new Date().toISOString(),
       version: '1.0.0',
@@ -280,9 +339,18 @@ export async function importEncryptedData(
       await decrypt(importData.passwords, masterPassword);
     }
     
+    if (importData.secureNotes) {
+      await decrypt(importData.secureNotes, masterPassword);
+    }
+    
     // Import passwords
     if (importData.passwords) {
       await SecureStore.setItemAsync(STORAGE_KEYS.PASSWORDS, JSON.stringify(importData.passwords));
+    }
+    
+    // Import secure notes
+    if (importData.secureNotes) {
+      await SecureStore.setItemAsync(STORAGE_KEYS.SECURE_NOTES, JSON.stringify(importData.secureNotes));
     }
     
     // Import settings

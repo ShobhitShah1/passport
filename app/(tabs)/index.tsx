@@ -1,10 +1,11 @@
 import AppIcon from "@/components/ui/AppIcon";
 import { useAppContext } from "@/hooks/useAppContext";
-import { Password, PasswordStrength } from "@/types";
+import { Password, PasswordStrength, SecureNote } from "@/types";
 import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useEffect, useMemo } from "react";
+import React, { useMemo, useState, useRef, useEffect } from "react";
 import {
   FlatList,
   Pressable,
@@ -12,16 +13,13 @@ import {
   StyleSheet,
   Text,
   View,
+  Alert,
+  Dimensions,
+  Animated as RNAnimated,
 } from "react-native";
 import Animated, {
-  cancelAnimation,
-  Easing,
-  useAnimatedProps,
   useAnimatedStyle,
   useSharedValue,
-  withDelay,
-  withRepeat,
-  withSequence,
   withSpring,
   withTiming,
 } from "react-native-reanimated";
@@ -29,149 +27,281 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, {
   Circle,
   Defs,
+  Stop,
   LinearGradient as SvgLinearGradient,
   Polygon,
-  Stop,
+  Path,
+  Line,
+  G,
 } from "react-native-svg";
+import Colors from "@/constants/Colors";
+import { ReachPressable } from "@/components/ui/ReachPressable";
 
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+const { height: screenHeight, width: screenWidth } = Dimensions.get('window');
+
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const AnimatedView = Animated.createAnimatedComponent(View);
-const AnimatedText = Animated.createAnimatedComponent(Text);
 
-const Colors = {
-  dark: {
-    background: "#02000a",
-    surface: "rgba(26, 26, 27, 0.7)",
-    text: "#f0f2f5",
-    textSecondary: "#a3a3a3",
-    textMuted: "#666666",
-    primary: "#00d4ff",
-    neonGreen: "#00ff88",
-    warning: "#ffab00",
-    error: "#ff4757",
-    glassBorder: "rgba(255, 255, 255, 0.2)",
-  },
-};
+// Holographic Hexagonal Grid Background
+const HexGrid = React.memo(() => {
+  const hexSize = 35;
+  const cols = Math.ceil(screenWidth / (hexSize * 0.75));
+  const rows = Math.ceil(screenHeight / (hexSize * 0.866));
 
-const TwinklingStar = ({ style, size }: { style: object; size: number }) => {
-  const opacity = useSharedValue(0);
-  useEffect(() => {
-    const randomDelay = Math.random() * 5000;
-    const timer = setTimeout(() => {
-      opacity.value = withRepeat(
-        withSequence(
-          withTiming(0.9 + Math.random() * 0.1, {
-            duration: 1500 + Math.random() * 2000,
-          }),
-          withTiming(0.3 + Math.random() * 0.2, {
-            duration: 1500 + Math.random() * 2000,
-          })
-        ),
-        -1,
-        true
-      );
-    }, randomDelay);
-    return () => {
-      clearTimeout(timer);
-      cancelAnimation(opacity);
-    };
-  }, [opacity]);
-  const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
+  const hexagonPoints = (cx: number, cy: number, size: number) => {
+    const points = [];
+    for (let i = 0; i < 6; i++) {
+      const angle = (i * Math.PI) / 3;
+      const x = cx + size * Math.cos(angle);
+      const y = cy + size * Math.sin(angle);
+      points.push(`${x},${y}`);
+    }
+    return points.join(' ');
+  };
+
   return (
-    <Animated.View
-      style={[
-        styles.star,
-        { width: size, height: size, borderRadius: size / 2 },
-        style,
-        animatedStyle,
-      ]}
-    />
-  );
-};
+    <Svg
+      width={screenWidth}
+      height={screenHeight}
+      style={StyleSheet.absoluteFill}
+      viewBox={`0 0 ${screenWidth} ${screenHeight}`}
+    >
+      <Defs>
+        <SvgLinearGradient id="hexGradient" x1="0" y1="0" x2="1" y2="1">
+          <Stop offset="0%" stopColor={Colors.dark.primary} stopOpacity="0.1" />
+          <Stop offset="50%" stopColor={Colors.dark.neonGreen} stopOpacity="0.06" />
+          <Stop offset="100%" stopColor={Colors.dark.secondary} stopOpacity="0.08" />
+        </SvgLinearGradient>
+        <SvgLinearGradient id="hexBorder" x1="0" y1="0" x2="1" y2="1">
+          <Stop offset="0%" stopColor={Colors.dark.primary} stopOpacity="0.2" />
+          <Stop offset="100%" stopColor={Colors.dark.neonGreen} stopOpacity="0.15" />
+        </SvgLinearGradient>
+      </Defs>
 
-const ParallaxStarfield = () => {
-  const stars = useMemo(
+      {Array.from({ length: rows }).map((_, row) =>
+        Array.from({ length: cols }).map((_, col) => {
+          const x = col * hexSize * 0.75;
+          const y = row * hexSize * 0.866 + (col % 2) * (hexSize * 0.433);
+          const opacity = Math.random() * 0.3 + 0.1;
+          
+          return (
+            <G key={`hex-${row}-${col}`} opacity={opacity}>
+              <Polygon
+                points={hexagonPoints(x, y, hexSize * 0.4)}
+                fill="url(#hexGradient)"
+                stroke="url(#hexBorder)"
+                strokeWidth="0.3"
+              />
+            </G>
+          );
+        })
+      )}
+    </Svg>
+  );
+});
+
+// Floating Particles System
+const FloatingParticles = React.memo(() => {
+  const particles = useMemo(
     () =>
-      Array.from({ length: 50 }, (_, i) => ({
-        key: `s1-${i}`,
-        left: `${Math.random() * 100}%`,
-        top: `${Math.random() * 100}%`,
-        size: Math.random() * 1.5 + 0.5,
+      Array.from({ length: 8 }, (_, i) => ({
+        id: i,
+        x: Math.random() * screenWidth,
+        y: Math.random() * screenHeight,
+        size: Math.random() * 3 + 1.5,
+        speed: Math.random() * 3000 + 4000,
       })),
     []
   );
+
+  const animatedValues = useRef(
+    particles.map(() => ({
+      translateX: new RNAnimated.Value(Math.random() * screenWidth),
+      translateY: new RNAnimated.Value(Math.random() * screenHeight),
+      opacity: new RNAnimated.Value(Math.random() * 0.6 + 0.3),
+    }))
+  ).current;
+
+  useEffect(() => {
+    const animations = animatedValues.map((anim, i) => {
+      return RNAnimated.loop(
+        RNAnimated.parallel([
+          RNAnimated.timing(anim.translateX, {
+            toValue: Math.random() * screenWidth,
+            duration: particles[i].speed,
+            useNativeDriver: true,
+          }),
+          RNAnimated.timing(anim.translateY, {
+            toValue: Math.random() * screenHeight,
+            duration: particles[i].speed + 1000,
+            useNativeDriver: true,
+          }),
+          RNAnimated.sequence([
+            RNAnimated.timing(anim.opacity, {
+              toValue: 0.8,
+              duration: 2500,
+              useNativeDriver: true,
+            }),
+            RNAnimated.timing(anim.opacity, {
+              toValue: 0.3,
+              duration: 2500,
+              useNativeDriver: true,
+            }),
+          ]),
+        ])
+      );
+    });
+
+    animations.forEach((anim) => anim.start());
+    return () => animations.forEach((anim) => anim.stop());
+  }, []);
+
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      {stars.map((star) => (
-        <TwinklingStar
-          key={star.key}
-          style={{ left: star.left, top: star.top }}
-          size={star.size}
+      {animatedValues.map((anim, i) => (
+        <RNAnimated.View
+          key={i}
+          style={[
+            styles.particle,
+            {
+              transform: [
+                { translateX: anim.translateX },
+                { translateY: anim.translateY },
+              ],
+              opacity: anim.opacity,
+              width: particles[i].size,
+              height: particles[i].size,
+            },
+          ]}
         />
       ))}
     </View>
   );
-};
+});
 
-const AnimatedHeader = ({ delay }: { delay: number }) => {
-  const opacity = useSharedValue(0);
-  const translateY = useSharedValue(-20);
-
-  useEffect(() => {
-    opacity.value = withDelay(delay, withTiming(1));
-    translateY.value = withDelay(
-      delay,
-      withSpring(0, { damping: 15, stiffness: 100 })
-    );
-  }, []);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-    transform: [{ translateY: translateY.value }],
-  }));
+const VaultHeader = React.memo(() => {
+  const currentHour = new Date().getHours();
+  const getGreeting = () => {
+    if (currentHour < 12) return "NEURAL SYNC: MORNING";
+    if (currentHour < 17) return "NEURAL SYNC: AFTERNOON";
+    return "NEURAL SYNC: EVENING";
+  };
 
   return (
-    <Animated.View style={[styles.header, animatedStyle]}>
-      <View>
-        <Text style={styles.welcomeText}>Your Vault</Text>
-        <Text style={styles.title}>Passport</Text>
+    <View style={styles.header}>
+      <View style={styles.headerContent}>
+        <Text style={styles.greetingText}>{getGreeting()}</Text>
+        <View style={styles.titleRow}>
+          <Svg width={40} height={40} viewBox="0 0 40 40">
+            <Defs>
+              <SvgLinearGradient id="vaultIconGradient" x1="0" y1="0" x2="1" y2="1">
+                <Stop offset="0%" stopColor={Colors.dark.primary} />
+                <Stop offset="50%" stopColor={Colors.dark.neonGreen} />
+                <Stop offset="100%" stopColor={Colors.dark.secondary} />
+              </SvgLinearGradient>
+            </Defs>
+            <Polygon
+              points="20,5 30,12.5 30,27.5 20,35 10,27.5 10,12.5"
+              stroke="url(#vaultIconGradient)"
+              strokeWidth="2.5"
+              fill="rgba(0, 212, 255, 0.15)"
+            />
+            <Circle cx="20" cy="20" r="6" fill="url(#vaultIconGradient)" />
+          </Svg>
+          <Text style={styles.title}>QUANTUM VAULT</Text>
+        </View>
+        <Text style={styles.subtitleText}>Neural Security Matrix - Status: ACTIVE</Text>
       </View>
-      <Pressable>
-        <Ionicons
-          name="person-circle-outline"
-          size={36}
-          color={Colors.dark.textSecondary}
-        />
-      </Pressable>
-    </Animated.View>
+      <ReachPressable 
+        style={styles.profileButton}
+        reachScale={1.05}
+        pressScale={0.95}
+      >
+        <View style={styles.profileBlur}>
+          <Ionicons
+            name="shield-checkmark"
+            size={24}
+            color={Colors.dark.neonGreen}
+          />
+        </View>
+      </ReachPressable>
+    </View>
   );
-};
+});
 
-const AnimatedSection = ({
-  children,
-  delay,
-}: {
-  children: React.ReactNode;
-  delay: number;
+// Holographic Container Component
+const HoloContainer = ({ 
+  children, 
+  title, 
+  icon,
+  style = {} 
+}: { 
+  children: React.ReactNode; 
+  title?: string; 
+  icon?: keyof typeof Ionicons.glyphMap;
+  style?: any;
 }) => {
-  const opacity = useSharedValue(0);
-  const translateY = useSharedValue(20);
+  const glowAnim = useRef(new RNAnimated.Value(0)).current;
 
   useEffect(() => {
-    opacity.value = withDelay(delay, withTiming(1));
-    translateY.value = withDelay(
-      delay,
-      withSpring(0, { damping: 18, stiffness: 100 })
-    );
+    RNAnimated.loop(
+      RNAnimated.sequence([
+        RNAnimated.timing(glowAnim, {
+          toValue: 1,
+          duration: 2500,
+          useNativeDriver: false,
+        }),
+        RNAnimated.timing(glowAnim, {
+          toValue: 0,
+          duration: 2500,
+          useNativeDriver: false,
+        }),
+      ])
+    ).start();
   }, []);
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-    transform: [{ translateY: translateY.value }],
-  }));
+  return (
+    <RNAnimated.View
+      style={[
+        styles.holoContainer,
+        {
+          shadowOpacity: glowAnim.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0.1, 0.4],
+          }),
+        },
+        style,
+      ]}
+    >
+      <View style={styles.holoContainerBg}>
+        {/* Corner Brackets */}
+        <Svg width={18} height={18} style={[styles.cornerBracket, styles.topLeft]}>
+          <Path d="M0,13 L0,0 L13,0" stroke={Colors.dark.primary} strokeWidth="1.5" fill="none" />
+        </Svg>
+        <Svg width={18} height={18} style={[styles.cornerBracket, styles.topRight]}>
+          <Path d="M5,0 L18,0 L18,13" stroke={Colors.dark.primary} strokeWidth="1.5" fill="none" />
+        </Svg>
+        <Svg width={18} height={18} style={[styles.cornerBracket, styles.bottomLeft]}>
+          <Path d="M0,5 L0,18 L13,18" stroke={Colors.dark.primary} strokeWidth="1.5" fill="none" />
+        </Svg>
+        <Svg width={18} height={18} style={[styles.cornerBracket, styles.bottomRight]}>
+          <Path d="M5,18 L18,18 L18,5" stroke={Colors.dark.primary} strokeWidth="1.5" fill="none" />
+        </Svg>
 
-  return <Animated.View style={animatedStyle}>{children}</Animated.View>;
+        {title && (
+          <View style={styles.holoHeader}>
+            {icon && <Ionicons name={icon} size={18} color={Colors.dark.neonGreen} />}
+            <Text style={styles.holoTitle}>{title}</Text>
+            <View style={styles.holoLine} />
+          </View>
+        )}
+
+        <View style={styles.holoContent}>
+          {children}
+        </View>
+      </View>
+    </RNAnimated.View>
+  );
 };
 
 const getScoreColors = (s: number): [string, string] => {
@@ -181,98 +311,26 @@ const getScoreColors = (s: number): [string, string] => {
   return ["#ff4757", "#ff7b59"];
 };
 
-const HexGrid = ({
-  isAnalyzed,
-}: {
-  isAnalyzed: Animated.SharedValue<boolean>;
-}) => {
-  const animatedStyle = useAnimatedStyle(() => ({
-    opacity: withTiming(isAnalyzed.value ? 0.15 : 0),
-    transform: [{ scale: withTiming(isAnalyzed.value ? 1 : 0.8) }],
-  }));
-
-  const hexPoints = (size: number) =>
-    Array.from({ length: 6 })
-      .map((_, i) => {
-        const angle_deg = 60 * i - 30;
-        const angle_rad = (Math.PI / 180) * angle_deg;
-        return `${size * Math.cos(angle_rad)},${size * Math.sin(angle_rad)}`;
-      })
-      .join(" ");
-
-  return (
-    <AnimatedView
-      style={[StyleSheet.absoluteFill, styles.hexGridContainer, animatedStyle]}
-    >
-      <Svg width="100%" height="100%">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <Polygon
-            key={i}
-            points={hexPoints(60 + i * 25)}
-            stroke={Colors.dark.primary}
-            strokeWidth="1"
-            fill="none"
-          />
-        ))}
-      </Svg>
-    </AnimatedView>
-  );
-};
 
 const StatPod = ({
   icon,
   value,
   label,
-  angle,
-  radius,
-  delay,
-  isAnalyzed,
+  visible,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   value: number;
   label: string;
-  angle: number;
-  radius: number;
-  delay: number;
-  isAnalyzed: Animated.SharedValue<boolean>;
+  visible: boolean;
 }) => {
-  const podStyle = useAnimatedStyle(() => {
-    const isVisible = isAnalyzed.value;
-    const transformX = Math.cos(angle * (Math.PI / 180)) * radius;
-    const transformY = Math.sin(angle * (Math.PI / 180)) * radius;
-
-    return {
-      opacity: withDelay(delay, withSpring(isVisible ? 1 : 0)),
-      transform: [
-        {
-          translateX: withDelay(
-            delay,
-            withSpring(isVisible ? transformX : 0, {
-              damping: 12,
-              stiffness: 100,
-            })
-          ),
-        },
-        {
-          translateY: withDelay(
-            delay,
-            withSpring(isVisible ? transformY : 0, {
-              damping: 12,
-              stiffness: 100,
-            })
-          ),
-        },
-        { scale: withDelay(delay, withSpring(isVisible ? 1 : 0.5)) },
-      ],
-    };
-  });
-
+  if (!visible) return null;
+  
   return (
-    <AnimatedView style={[styles.statPod, podStyle]}>
+    <View style={styles.statPod}>
       <Ionicons name={icon} size={20} color={Colors.dark.primary} />
       <Text style={styles.statPodValue}>{value}</Text>
       <Text style={styles.statPodLabel}>{label}</Text>
-    </AnimatedView>
+    </View>
   );
 };
 
@@ -285,151 +343,119 @@ const AnalysisSecurityCard = ({
   total: number;
   weak: number;
 }) => {
-  const isAnalyzed = useSharedValue(false);
-  const progress = useSharedValue(0);
-  const animatedScore = useSharedValue(0);
-
-  const CIRCLE_RADIUS = 80;
-  const CIRCLE_LENGTH = 2 * Math.PI * CIRCLE_RADIUS;
+  const [isAnalyzed, setIsAnalyzed] = useState(false);
   const gradient = getScoreColors(score);
 
-  const animatedCircleProps = useAnimatedProps(() => ({
-    strokeDashoffset: CIRCLE_LENGTH * (1 - progress.value),
-  }));
-
-  const animatedScoreProps = useAnimatedProps(() => ({
-    text: `${Math.round(animatedScore.value)}`,
-  }));
-
   const onAnalyzePress = () => {
-    if (isAnalyzed.value) return;
-    isAnalyzed.value = true;
-    progress.value = withTiming(score / 100, {
-      duration: 1500,
-      easing: Easing.out(Easing.cubic),
-    });
-    animatedScore.value = withTiming(score, {
-      duration: 1500,
-      easing: Easing.out(Easing.cubic),
-    });
+    if (isAnalyzed) return;
+    setIsAnalyzed(true);
   };
-
-  const promptStyle = useAnimatedStyle(() => ({
-    opacity: withTiming(isAnalyzed.value ? 0 : 1),
-    transform: [{ scale: withTiming(isAnalyzed.value ? 0.8 : 1) }],
-  }));
-
-  const scoreContainerStyle = useAnimatedStyle(() => ({
-    opacity: withTiming(isAnalyzed.value ? 1 : 0),
-    transform: [{ scale: withTiming(isAnalyzed.value ? 1 : 0.8) }],
-  }));
 
   return (
     <View style={styles.analysisContainer}>
-      <HexGrid isAnalyzed={isAnalyzed} />
-      <Svg width={280} height={280} viewBox="0 0 280 280">
-        <Defs>
-          <SvgLinearGradient id="gradient" x1="0" y1="0" x2="1" y2="1">
-            <Stop offset="0%" stopColor={gradient[0]} />
-            <Stop offset="100%" stopColor={gradient[1]} />
-          </SvgLinearGradient>
-        </Defs>
-        <Circle
-          cx="140"
-          cy="140"
-          r={CIRCLE_RADIUS}
-          stroke={Colors.dark.glassBorder}
-          strokeWidth={2}
-        />
-        <AnimatedCircle
-          cx="140"
-          cy="140"
-          r={CIRCLE_RADIUS}
-          stroke="url(#gradient)"
-          strokeWidth={4}
-          strokeDasharray={CIRCLE_LENGTH}
-          animatedProps={animatedCircleProps}
-          strokeLinecap="round"
-          transform="rotate(-90 140 140)"
-        />
-      </Svg>
-      <View style={styles.centerHub}>
-        <AnimatedPressable
-          style={styles.pressableArea}
-          onPress={onAnalyzePress}
-        >
-          <AnimatedView style={[styles.promptContainer, promptStyle]}>
-            <Ionicons
-              name="shield-checkmark-outline"
-              size={40}
-              color={Colors.dark.primary}
-            />
-            <Text style={styles.promptText}>Analyze Security</Text>
-          </AnimatedView>
-          <AnimatedView style={[styles.scoreContainer, scoreContainerStyle]}>
-            <AnimatedText
-              style={styles.scoreText}
-              animatedProps={animatedScoreProps}
-            />
-            <Text style={styles.scoreLabel}>Health</Text>
-          </AnimatedView>
-        </AnimatedPressable>
+      <View style={styles.simpleAnalysisCard}>
+        <Pressable style={styles.pressableArea} onPress={onAnalyzePress}>
+          {!isAnalyzed ? (
+            <View style={styles.promptContainer}>
+              <Ionicons name="shield-checkmark-outline" size={40} color={Colors.dark.primary} />
+              <Text style={styles.promptText}>Analyze Security</Text>
+            </View>
+          ) : (
+            <View style={styles.scoreContainer}>
+              <Text style={styles.scoreText}>{score}</Text>
+              <Text style={styles.scoreLabel}>Health</Text>
+            </View>
+          )}
+        </Pressable>
 
-        <StatPod
-          icon="file-tray-full-outline"
-          value={total}
-          label="Total"
-          angle={-90}
-          radius={120}
-          delay={200}
-          isAnalyzed={isAnalyzed}
-        />
-        <StatPod
-          icon="lock-open-outline"
-          value={weak}
-          label="Weak"
-          angle={30}
-          radius={120}
-          delay={400}
-          isAnalyzed={isAnalyzed}
-        />
-        <StatPod
-          icon="copy-outline"
-          value={0}
-          label="Reused"
-          angle={150}
-          radius={120}
-          delay={600}
-          isAnalyzed={isAnalyzed}
-        />
+        {isAnalyzed && (
+          <View style={styles.statsRow}>
+            <StatPod icon="file-tray-full-outline" value={total} label="Total" visible={true} />
+            <StatPod icon="lock-open-outline" value={weak} label="Weak" visible={true} />
+            <StatPod icon="copy-outline" value={0} label="Reused" visible={true} />
+          </View>
+        )}
       </View>
     </View>
   );
 };
 
+const SearchBar = React.memo(() => {
+  const [isFocused, setIsFocused] = React.useState(false);
+
+  return (
+    <View style={styles.searchInnerContainer}>
+      <View style={[styles.searchContent, isFocused && styles.searchFocused]}>
+        <Ionicons name="search" size={20} color={Colors.dark.neonGreen} />
+        <Text style={styles.searchPlaceholder}>
+          Scan neural patterns...
+        </Text>
+        <Ionicons name="qr-code" size={20} color={Colors.dark.primary} />
+      </View>
+    </View>
+  );
+});
+
 const QuickActions = () => {
   const actions = [
-    { icon: "add-circle-outline", label: "Add", route: "/(tabs)/generator" },
-    { icon: "key-outline", label: "Generate", route: "/(tabs)/generator" },
-    { icon: "cloud-upload-outline", label: "Import" },
-    { icon: "settings-outline", label: "Settings", route: "/(tabs)/settings" },
+    { 
+      icon: "add-circle", 
+      label: "Add Entry", 
+      route: "/(tabs)/apps",
+      color: Colors.dark.neonGreen 
+    },
+    { 
+      icon: "flash", 
+      label: "Generate", 
+      route: "/(tabs)/generator",
+      color: Colors.dark.primary
+    },
+    { 
+      icon: "shield-checkmark", 
+      label: "Analyze", 
+      color: "#8b5cf6"
+    },
+    { 
+      icon: "cloud-upload", 
+      label: "Import", 
+      color: Colors.dark.warning
+    },
   ];
 
   const ActionButton = ({ item }: { item: (typeof actions)[0] }) => {
     const scale = useSharedValue(1);
+    const glowOpacity = useSharedValue(0);
+    
+    const animatedStyle = useAnimatedStyle(() => ({
+      transform: [{ scale: scale.value }],
+    }));
+
+    const glowStyle = useAnimatedStyle(() => ({
+      opacity: glowOpacity.value,
+    }));
+
     return (
       <AnimatedPressable
         onPress={() => item.route && router.push(item.route as any)}
-        onPressIn={() => (scale.value = withSpring(0.9))}
-        onPressOut={() => (scale.value = withSpring(1))}
-        style={{ transform: [{ scale }] }}
+        onPressIn={() => {
+          scale.value = withSpring(0.9);
+          glowOpacity.value = withTiming(1);
+        }}
+        onPressOut={() => {
+          scale.value = withSpring(1);
+          glowOpacity.value = withTiming(0);
+        }}
+        style={[styles.actionButtonContainer, animatedStyle]}
       >
-        <BlurView intensity={25} tint="dark" style={styles.actionButton}>
-          <Ionicons
-            name={item.icon as any}
-            size={28}
-            color={Colors.dark.primary}
-          />
+        <AnimatedView style={[styles.actionButtonGlow, glowStyle, { shadowColor: item.color }]} />
+        <BlurView intensity={30} tint="dark" style={styles.actionButton}>
+          <View style={[styles.actionIconContainer, { backgroundColor: item.color + '20' }]}>
+            <Ionicons
+              name={item.icon as any}
+              size={24}
+              color={item.color}
+            />
+          </View>
           <Text style={styles.actionLabel}>{item.label}</Text>
         </BlurView>
       </AnimatedPressable>
@@ -438,12 +464,12 @@ const QuickActions = () => {
 
   return (
     <View style={styles.panelContainer}>
-      <Text style={styles.sectionTitle}>Quick Actions</Text>
+      <Text style={styles.sectionTitle}>Mission Control</Text>
       <FlatList
         data={actions}
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ gap: 12, paddingHorizontal: 20 }}
+        contentContainerStyle={{ gap: 16, paddingHorizontal: 20 }}
         keyExtractor={(item) => item.label}
         renderItem={({ item }) => <ActionButton item={item} />}
       />
@@ -453,37 +479,132 @@ const QuickActions = () => {
 
 const RecentPasswords = ({ passwords }: { passwords: Password[] }) => {
   const PasswordCard = ({ item }: { item: Password }) => {
-    const scale = useSharedValue(1);
+    const getStrengthColor = (strength: PasswordStrength) => {
+      if (strength >= PasswordStrength.VERY_STRONG) return Colors.dark.neonGreen;
+      if (strength >= PasswordStrength.STRONG) return Colors.dark.primary;
+      if (strength >= PasswordStrength.MODERATE) return Colors.dark.warning;
+      return Colors.dark.error;
+    };
+
+    const getStrengthText = (strength: PasswordStrength) => {
+      if (strength >= PasswordStrength.VERY_STRONG) return 'Very Strong';
+      if (strength >= PasswordStrength.STRONG) return 'Strong';
+      if (strength >= PasswordStrength.MODERATE) return 'Moderate';
+      if (strength >= PasswordStrength.WEAK) return 'Weak';
+      return 'Very Weak';
+    };
+
     return (
-      <AnimatedPressable
-        onPressIn={() => (scale.value = withSpring(0.95))}
-        onPressOut={() => (scale.value = withSpring(1))}
-        style={{ transform: [{ scale }] }}
-      >
-        <BlurView intensity={25} tint="dark" style={styles.passwordCard}>
-          <AppIcon appName={item.appName} size="small" />
+      <Pressable style={styles.passwordCardContainer}>
+        <View style={styles.passwordCard}>
+          <View style={styles.passwordCardHeader}>
+            <AppIcon appName={item.appName} size="small" />
+            <View style={[
+              styles.strengthIndicator, 
+              { backgroundColor: getStrengthColor(item.strength) }
+            ]} />
+          </View>
           <Text style={styles.passwordAppName} numberOfLines={1}>
             {item.appName}
           </Text>
-        </BlurView>
-      </AnimatedPressable>
+          <Text style={styles.passwordUsername} numberOfLines={1}>
+            {item.username || 'No username'}
+          </Text>
+          <View style={styles.passwordStrength}>
+            <Text style={[styles.passwordStrengthText, { color: getStrengthColor(item.strength) }]}>
+              {getStrengthText(item.strength)}
+            </Text>
+          </View>
+          <View style={styles.passwordFooter}>
+            <Text style={styles.passwordDate}>
+              {item.lastUsed ? new Date(item.lastUsed).toLocaleDateString() : 'Never used'}
+            </Text>
+            <Ionicons name="copy-outline" size={16} color={Colors.dark.primary} />
+          </View>
+        </View>
+      </Pressable>
     );
   };
+
   return (
     <View style={styles.panelContainer}>
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Recent</Text>
-        <Pressable>
+        <Text style={styles.sectionTitle}>Recent Access</Text>
+        <Pressable style={styles.viewAllButton}>
           <Text style={styles.viewAll}>View All</Text>
+          <Ionicons name="arrow-forward" size={16} color={Colors.dark.primary} />
         </Pressable>
       </View>
       <FlatList
         data={passwords}
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ gap: 12, paddingHorizontal: 20 }}
+        contentContainerStyle={{ gap: 16, paddingHorizontal: 20 }}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => <PasswordCard item={item} />}
+      />
+    </View>
+  );
+};
+
+const RecentNotes = ({ notes }: { notes: SecureNote[] }) => {
+  const NoteCard = ({ item }: { item: SecureNote }) => {
+    const previewText = item.content.length > 50 
+      ? item.content.substring(0, 50) + '...' 
+      : item.content;
+
+    return (
+      <Pressable 
+        style={styles.noteCardContainer}
+        onPress={() => {
+          Alert.alert('Note Selected', `Opening: ${item.title}`);
+        }}
+      >
+        <View style={styles.noteCard}>
+          <View style={styles.noteCardHeader}>
+            <Ionicons name="document-lock" size={18} color={Colors.dark.primary} />
+            <View style={styles.noteCategoryBadge}>
+              <Text style={styles.noteCategoryText}>{item.category}</Text>
+            </View>
+          </View>
+          <Text style={styles.noteTitle} numberOfLines={1}>
+            {item.title}
+          </Text>
+          <Text style={styles.notePreview} numberOfLines={2}>
+            {previewText}
+          </Text>
+          <View style={styles.noteFooter}>
+            <Text style={styles.noteDate}>
+              {new Date(item.updatedAt).toLocaleDateString()}
+            </Text>
+            {item.isFavorite && (
+              <Ionicons name="heart" size={12} color={Colors.dark.neonGreen} />
+            )}
+          </View>
+        </View>
+      </Pressable>
+    );
+  };
+
+  return (
+    <View style={styles.panelContainer}>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Recent Notes</Text>
+        <Pressable 
+          style={styles.viewAllButton}
+          onPress={() => router.push("/(tabs)/apps")}
+        >
+          <Text style={styles.viewAll}>View All</Text>
+          <Ionicons name="arrow-forward" size={16} color={Colors.dark.primary} />
+        </Pressable>
+      </View>
+      <FlatList
+        data={notes}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ gap: 16, paddingHorizontal: 20 }}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => <NoteCard item={item} />}
       />
     </View>
   );
@@ -498,15 +619,15 @@ const EmptyState = () => (
         color={Colors.dark.primary}
         style={{ marginBottom: 16 }}
       />
-      <Text style={styles.emptyTitle}>Your Vault is Empty</Text>
+      <Text style={styles.emptyTitle}>Your Vault Awaits</Text>
       <Text style={styles.emptyDescription}>
-        Start by adding your first password to secure your digital life.
+        Begin your journey by securing your first digital credential in the cosmos.
       </Text>
       <Pressable
         style={styles.emptyButton}
-        onPress={() => router.push("/(tabs)/generator")}
+        onPress={() => router.push("/(tabs)/apps")}
       >
-        <Text style={styles.emptyButtonText}>Add First Password</Text>
+        <Text style={styles.emptyButtonText}>Start Mission</Text>
       </Pressable>
     </View>
   </BlurView>
@@ -540,37 +661,73 @@ export default function VaultScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <ParallaxStarfield />
+      <HexGrid />
+      <FloatingParticles />
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: insets.bottom + 32 },
+          { paddingBottom: insets.bottom + 110 },
         ]}
       >
-        <AnimatedHeader delay={100} />
+        <VaultHeader />
 
-        <AnimatedSection delay={200}>
+        <HoloContainer title="NEURAL SEARCH INTERFACE" icon="search">
+          <SearchBar />
+        </HoloContainer>
+
+        <HoloContainer title="SECURITY ANALYSIS MATRIX" icon="analytics">
           <AnalysisSecurityCard
             score={securityScore}
             total={totalPasswords}
             weak={weakPasswords}
           />
-        </AnimatedSection>
+        </HoloContainer>
 
-        <AnimatedSection delay={300}>
+        <HoloContainer title="MISSION CONTROL PROTOCOLS" icon="terminal">
           <QuickActions />
-        </AnimatedSection>
+        </HoloContainer>
 
         {recentPasswords.length > 0 && (
-          <AnimatedSection delay={400}>
+          <HoloContainer title="RECENT ACCESS LOGS" icon="time">
             <RecentPasswords passwords={recentPasswords} />
-          </AnimatedSection>
+          </HoloContainer>
+        )}
+
+        {state.secureNotes.length > 0 && (
+          <HoloContainer title="ENCRYPTED DATA FRAGMENTS" icon="document-lock">
+            <RecentNotes notes={state.secureNotes.slice(0, 3)} />
+          </HoloContainer>
+        )}
+
+        {totalPasswords > 6 && (
+          <HoloContainer style={{ marginTop: 8 }}>
+            <ReachPressable 
+              style={styles.viewAllPasswordsButton}
+              onPress={() => {
+                router.push("/(tabs)/apps");
+              }}
+              reachScale={1.01}
+              pressScale={0.99}
+            >
+              <LinearGradient
+                colors={[
+                  "rgba(0, 212, 255, 0.1)",
+                  "rgba(0, 255, 136, 0.05)",
+                  "rgba(139, 92, 246, 0.1)",
+                ]}
+                style={styles.viewAllPasswordsGradient}
+              >
+                <Text style={styles.viewAllPasswordsText}>⚡ ACCESS ALL {totalPasswords} NEURAL KEYS</Text>
+                <Ionicons name="arrow-forward-circle" size={24} color={Colors.dark.primary} />
+              </LinearGradient>
+            </ReachPressable>
+          </HoloContainer>
         )}
 
         {totalPasswords === 0 && (
-          <AnimatedSection delay={300}>
+          <HoloContainer title="VAULT INITIALIZATION" icon="rocket">
             <EmptyState />
-          </AnimatedSection>
+          </HoloContainer>
         )}
       </ScrollView>
     </View>
@@ -578,38 +735,181 @@ export default function VaultScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.dark.background },
-  star: { position: "absolute", backgroundColor: "white" },
-  scrollContent: { paddingBottom: 32 },
+  container: { 
+    flex: 1, 
+    backgroundColor: Colors.dark.background 
+  },
+  particle: {
+    position: "absolute",
+    borderRadius: 50,
+    backgroundColor: Colors.dark.primary,
+    shadowColor: Colors.dark.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 3,
+  },
+  scrollContent: { 
+    paddingBottom: 16,
+    paddingHorizontal: 20,
+  },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "flex-start",
+    paddingTop: 16,
+    marginBottom: 32,
+  },
+  headerContent: {
+    flex: 1,
+  },
+  greetingText: { 
+    fontSize: 12, 
+    color: Colors.dark.neonGreen,
+    marginBottom: 8,
+    fontWeight: "700",
+    letterSpacing: 1,
+  },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 8,
+  },
+  title: { 
+    fontSize: 24, 
+    fontWeight: "800", 
+    color: Colors.dark.text,
+    letterSpacing: 1.5,
+  },
+  subtitleText: {
+    fontSize: 12,
+    color: Colors.dark.primary,
+    fontWeight: "600",
+    letterSpacing: 0.5,
+  },
+  profileButton: {
+    borderRadius: 16,
+    overflow: "hidden",
+  },
+  profileBlur: {
+    width: 56,
+    height: 56,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: Colors.dark.surface,
+    borderWidth: 2,
+    borderColor: Colors.dark.primary,
+  },
+  // Holographic Container Styles
+  holoContainer: {
+    marginBottom: 24,
+    shadowColor: Colors.dark.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowRadius: 15,
+  },
+  holoContainerBg: {
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: Colors.dark.primary,
+    backgroundColor: Colors.dark.surface,
+    position: "relative",
+    overflow: "hidden",
+  },
+  cornerBracket: {
+    position: "absolute",
+  },
+  topLeft: { top: -2, left: -2 },
+  topRight: { top: -2, right: -2 },
+  bottomLeft: { bottom: -2, left: -2 },
+  bottomRight: { bottom: -2, right: -2 },
+  holoHeader: {
+    flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 20,
     paddingTop: 16,
+    paddingBottom: 12,
+    gap: 10,
   },
-  welcomeText: { fontSize: 16, color: Colors.dark.textSecondary },
-  title: { fontSize: 32, fontWeight: "700", color: Colors.dark.text },
-  panelContainer: { marginTop: 20 },
+  holoTitle: {
+    fontSize: 14,
+    color: Colors.dark.neonGreen,
+    fontWeight: "800",
+    letterSpacing: 1,
+  },
+  holoLine: {
+    flex: 1,
+    height: 1.5,
+    backgroundColor: Colors.dark.primary,
+    marginLeft: 10,
+  },
+  holoContent: {
+    paddingHorizontal: 0,
+    paddingBottom: 0,
+  },
+  searchInnerContainer: {
+    padding: 20,
+  },
+  searchContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  },
+  searchFocused: {
+    borderColor: Colors.dark.neonGreen,
+    shadowColor: Colors.dark.neonGreen,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  searchPlaceholder: {
+    flex: 1,
+    fontSize: 14,
+    color: Colors.dark.textMuted,
+    fontWeight: "600",
+    letterSpacing: 0.5,
+  },
+  viewAllPasswordsGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 20,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary,
+  },
+  panelContainer: { marginTop: 16 },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "600",
     color: Colors.dark.text,
-    marginBottom: 16,
-    paddingHorizontal: 20,
+    marginBottom: 12,
+    paddingHorizontal: 16,
   },
   sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
+    marginBottom: 8,
+  },
+  viewAllButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
   },
   viewAll: { fontSize: 14, color: Colors.dark.primary, fontWeight: "600" },
   analysisContainer: {
-    height: 320,
+    height: 300,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 20,
+    marginTop: 16,
   },
   hexGridContainer: {
     alignItems: "center",
@@ -673,48 +973,119 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: Colors.dark.textMuted,
   },
+  actionButtonContainer: {
+    position: "relative",
+  },
+  actionButtonGlow: {
+    position: "absolute",
+    top: -4,
+    left: -4,
+    right: -4,
+    bottom: -4,
+    borderRadius: 24,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 10,
+  },
   actionButton: {
-    width: 90,
-    height: 90,
+    width: 100,
+    height: 120,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 20,
+    borderRadius: 24,
     borderWidth: 1,
-    borderColor: Colors.dark.glassBorder,
+    borderColor: Colors.dark.cardBorder,
     backgroundColor: Colors.dark.surface,
-    gap: 8,
+    padding: 16,
+    gap: 12,
+    shadowColor: 'rgba(0, 0, 0, 0.1)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  actionIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
   },
   actionLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: Colors.dark.textSecondary,
-  },
-  passwordCard: {
-    width: 110,
-    height: 110,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: Colors.dark.glassBorder,
-    backgroundColor: Colors.dark.surface,
-    padding: 8,
-    gap: 8,
-  },
-  passwordAppName: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: "600",
     color: Colors.dark.text,
     textAlign: "center",
   },
+  passwordCardContainer: {
+    marginBottom: 8,
+  },
+  passwordCard: {
+    width: 140,
+    height: 160,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: Colors.dark.cardBorder,
+    backgroundColor: Colors.dark.surface,
+    padding: 16,
+    shadowColor: 'rgba(0, 0, 0, 0.1)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  passwordCardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  strengthIndicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  passwordAppName: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.text,
+    marginBottom: 4,
+  },
+  passwordUsername: {
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
+    marginBottom: 16,
+  },
+  passwordFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  passwordDate: {
+    fontSize: 10,
+    color: Colors.dark.textMuted,
+  },
+  passwordStrength: {
+    marginBottom: 8,
+  },
+  passwordStrengthText: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
   emptyStateGlassPanel: {
     backgroundColor: Colors.dark.surface,
-    borderRadius: 20,
+    borderRadius: 24,
     borderWidth: 1,
-    borderColor: Colors.dark.glassBorder,
+    borderColor: Colors.dark.cardBorder,
     overflow: "hidden",
     marginHorizontal: 20,
     marginTop: 20,
+    shadowColor: 'rgba(0, 0, 0, 0.1)',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    elevation: 4,
   },
   emptyContent: { padding: 32, alignItems: "center", gap: 8 },
   emptyTitle: {
@@ -741,5 +1112,97 @@ const styles = StyleSheet.create({
     color: Colors.dark.background,
     fontWeight: "700",
     fontSize: 16,
+  },
+  allPasswordsButton: {
+    paddingHorizontal: 20,
+    marginTop: 16,
+  },
+  viewAllPasswordsButton: {
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  viewAllPasswordsBlur: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    backgroundColor: Colors.dark.surface,
+    borderWidth: 1,
+    borderColor: Colors.dark.cardBorder,
+  },
+  simpleAnalysisCard: {
+    backgroundColor: Colors.dark.surface,
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + '20',
+    marginBottom: 16,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 16,
+  },
+  viewAllPasswordsText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.dark.text,
+  },
+  noteCardContainer: {
+    marginBottom: 8,
+  },
+  noteCard: {
+    width: 160,
+    height: 140,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: Colors.dark.cardBorder,
+    backgroundColor: Colors.dark.surface,
+    padding: 12,
+    shadowColor: 'rgba(0, 0, 0, 0.1)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  noteCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  noteCategoryBadge: {
+    backgroundColor: Colors.dark.primary + '20',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  noteCategoryText: {
+    fontSize: 9,
+    color: Colors.dark.primary,
+    fontWeight: '600',
+  },
+  noteTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.dark.text,
+    marginBottom: 6,
+  },
+  notePreview: {
+    fontSize: 11,
+    color: Colors.dark.textSecondary,
+    lineHeight: 14,
+    flex: 1,
+  },
+  noteFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  noteDate: {
+    fontSize: 9,
+    color: Colors.dark.textMuted,
+    fontWeight: '500',
   },
 });

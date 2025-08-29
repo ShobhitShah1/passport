@@ -1,30 +1,23 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { useState, useEffect, useMemo, useCallback } from "react";
-import {
-  Dimensions,
-  Pressable,
-  StatusBar,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { Dimensions, Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  withRepeat,
-  withSequence,
-  Easing,
-  withSpring,
   cancelAnimation,
-  withDelay,
-  runOnUI,
-  runOnJS,
+  Easing,
   FadeIn,
   FadeOut,
+  runOnJS,
+  runOnUI,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withSequence,
+  withSpring,
+  withTiming,
 } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Colors from "@/constants/Colors";
 
@@ -374,11 +367,6 @@ export default function OnboardingScreen() {
         { paddingTop: insets.top, paddingBottom: insets.bottom },
       ]}
     >
-      <StatusBar
-        barStyle="light-content"
-        backgroundColor={Colors.dark.background}
-      />
-
       <ParallaxStarfield />
 
       <View style={styles.topSection}>

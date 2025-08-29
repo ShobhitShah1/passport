@@ -9,7 +9,7 @@ const Colors = {
     // Text colors
     text: '#ffffff',                // Primary text
     textSecondary: '#a3a3a3',       // Secondary text
-    textMuted: '#666666',           // Muted text
+    textMuted: '#999999',           // Muted text (lighter for better visibility)
     
     // Accent colors - Gen-Z vibrant palette
     electricBlue: '#00d4ff',        // Primary brand color
@@ -30,8 +30,13 @@ const Colors = {
     secondaryHover: '#7c3aed',
     
     // UI elements
-    border: '#333333',
-    borderLight: '#444444',
+    border: 'rgba(255, 255, 255, 0.1)',
+    borderLight: 'rgba(255, 255, 255, 0.15)',
+    borderAccent: 'rgba(0, 212, 255, 0.3)',
+    glassBorder: 'rgba(255, 255, 255, 0.2)',
+    cardBorder: 'rgba(255, 255, 255, 0.12)',
+    inputBorder: 'rgba(255, 255, 255, 0.2)',
+    inputBorderFocused: 'rgba(0, 212, 255, 0.6)',
     tabIconDefault: '#666666',
     tabIconSelected: '#00d4ff',
     tint: '#00d4ff',

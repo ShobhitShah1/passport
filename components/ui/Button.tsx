@@ -99,14 +99,19 @@ export default function Button({
 
 const styles = StyleSheet.create({
   button: {
-    borderRadius: 12,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
+    shadowColor: 'rgba(0, 0, 0, 0.2)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
+    elevation: 3,
   },
   gradientButton: {
     flex: 1,
-    borderRadius: 12,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
@@ -119,19 +124,19 @@ const styles = StyleSheet.create({
   
   // Sizes
   small: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    minHeight: 36,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    minHeight: 32,
   },
   medium: {
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    minHeight: 48,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    minHeight: 44,
   },
   large: {
-    paddingHorizontal: 24,
-    paddingVertical: 18,
-    minHeight: 56,
+    paddingHorizontal: 22,
+    paddingVertical: 16,
+    minHeight: 52,
   },
   
   // Variants
@@ -143,8 +148,8 @@ const styles = StyleSheet.create({
   },
   outline: {
     backgroundColor: 'transparent',
-    borderWidth: 2,
-    borderColor: Colors.dark.primary,
+    borderWidth: 1.5,
+    borderColor: Colors.dark.borderAccent,
   },
   danger: {
     backgroundColor: Colors.dark.error,
@@ -162,13 +167,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   smallText: {
-    fontSize: 14,
+    fontSize: 13,
   },
   mediumText: {
-    fontSize: 16,
+    fontSize: 15,
   },
   largeText: {
-    fontSize: 18,
+    fontSize: 17,
   },
   
   // Text variants

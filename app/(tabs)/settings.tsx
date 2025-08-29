@@ -1,27 +1,591 @@
-import React from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   StyleSheet,
   ScrollView,
-  SafeAreaView,
   Text,
   View,
+  Pressable,
+  Alert,
+  Switch,
+  Share,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Stop, Polygon } from 'react-native-svg';
+import * as LocalAuthentication from 'expo-local-authentication';
+
 import Colors from '@/constants/Colors';
+import { useAppContext } from '@/hooks/useAppContext';
+import { saveSettings, clearAllData, exportEncryptedData, changeMasterPassword } from '@/services/storage/secureStorage';
+import { UserSettings } from '@/types';
+import { ReachPressable } from '@/components/ui/ReachPressable';
+
+
+const TwinklingStar = ({ style, size }: { style: object; size: number }) => {
+  return (
+    <View
+      style={[
+        { position: "absolute", width: size, height: size, borderRadius: size / 2, backgroundColor: "white", opacity: 0.4 },
+        style,
+      ]}
+    />
+  );
+};
+
+const StarField = () => {
+  const stars = useMemo(() =>
+    Array.from({ length: 15 }, (_, i) => ({
+      key: `s1-${i}`,
+      left: `${Math.random() * 100}%`,
+      top: `${Math.random() * 100}%`,
+      size: Math.random() * 1.5 + 0.5,
+    })),
+    []
+  );
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      {stars.map((star) => (
+        <TwinklingStar
+          key={star.key}
+          style={{ left: star.left, top: star.top }}
+          size={star.size}
+        />
+      ))}
+    </View>
+  );
+};
+
+const FloatingHexagon = ({ style }: { style: object }) => {
+  const hexPoints = (size: number) =>
+    Array.from({ length: 6 })
+      .map((_, i) => {
+        const angle_deg = 60 * i - 30;
+        const angle_rad = (Math.PI / 180) * angle_deg;
+        return `${size * Math.cos(angle_rad)},${size * Math.sin(angle_rad)}`;
+      })
+      .join(" ");
+
+  return (
+    <View style={[{ position: "absolute" }, style]}>
+      <Svg width={60} height={60} viewBox="-30 -30 60 60">
+        <Polygon
+          points={hexPoints(25)}
+          stroke={Colors.dark.primary}
+          strokeWidth="1"
+          fill="none"
+          opacity={0.3}
+        />
+      </Svg>
+    </View>
+  );
+};
 
 export default function SettingsTabScreen() {
-  return (
-    <SafeAreaView style={styles.container}>
-      <LinearGradient
-        colors={['#0a0a0b', '#1a1a1b', '#0a0a0b']}
-        style={styles.gradient}
+  const { state, dispatch } = useAppContext();
+  const [isLoading, setIsLoading] = useState(false);
+  const [biometricAvailable, setBiometricAvailable] = useState(false);
+  const insets = useSafeAreaInsets();
+
+  useEffect(() => {
+    checkBiometricAvailability();
+  }, []);
+
+  const checkBiometricAvailability = async () => {
+    try {
+      const isAvailable = await LocalAuthentication.hasHardwareAsync();
+      setBiometricAvailable(isAvailable);
+    } catch (error) {
+      console.error('Error checking biometric availability:', error);
+    }
+  };
+
+  const updateSetting = async <K extends keyof UserSettings>(
+    key: K,
+    value: UserSettings[K]
+  ) => {
+    try {
+      setIsLoading(true);
+      const newSettings = { ...state.settings, [key]: value };
+      
+      // Save to storage
+      const success = await saveSettings(newSettings);
+      
+      if (success) {
+        // Update app state
+        dispatch({ type: 'UPDATE_SETTINGS', payload: { [key]: value } });
+      } else {
+        Alert.alert('Error', 'Failed to save settings. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error updating setting:', error);
+      Alert.alert('Error', 'Failed to save settings. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleBiometricToggle = async (enabled: boolean) => {
+    if (!biometricAvailable) {
+      Alert.alert('Not Available', 'Biometric authentication is not available on this device.');
+      return;
+    }
+
+    if (enabled) {
+      try {
+        const result = await LocalAuthentication.authenticateAsync({
+          promptMessage: 'Enable biometric authentication',
+          fallbackLabel: 'Use PIN',
+          disableDeviceFallback: false,
+        });
+
+        if (result.success) {
+          await updateSetting('biometricEnabled', true);
+        } else {
+          Alert.alert('Authentication Failed', 'Please try again.');
+        }
+      } catch (error) {
+        console.error('Biometric auth error:', error);
+        Alert.alert('Error', 'Failed to enable biometric authentication.');
+      }
+    } else {
+      await updateSetting('biometricEnabled', false);
+    }
+  };
+
+  const handleAutoLockTimeoutChange = () => {
+    Alert.alert(
+      'Auto-Lock Timeout',
+      'Choose when to lock the app automatically:',
+      [
+        { text: '1 minute', onPress: () => updateSetting('autoLockTimeout', 1) },
+        { text: '5 minutes', onPress: () => updateSetting('autoLockTimeout', 5) },
+        { text: '15 minutes', onPress: () => updateSetting('autoLockTimeout', 15) },
+        { text: '30 minutes', onPress: () => updateSetting('autoLockTimeout', 30) },
+        { text: 'Never', onPress: () => updateSetting('autoLockTimeout', 0) },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
+  const handlePasswordLengthChange = () => {
+    Alert.alert(
+      'Default Password Length',
+      'Choose the default length for generated passwords:',
+      [
+        { text: '12 characters', onPress: () => updateSetting('defaultPasswordLength', 12) },
+        { text: '16 characters', onPress: () => updateSetting('defaultPasswordLength', 16) },
+        { text: '20 characters', onPress: () => updateSetting('defaultPasswordLength', 20) },
+        { text: '24 characters', onPress: () => updateSetting('defaultPasswordLength', 24) },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
+  const handleExportData = async () => {
+    try {
+      setIsLoading(true);
+      const exportData = await exportEncryptedData();
+      
+      if (exportData) {
+        await Share.share({
+          message: exportData,
+          title: 'Passport Backup Data',
+        });
+      } else {
+        Alert.alert('Error', 'Failed to export data.');
+      }
+    } catch (error) {
+      console.error('Export error:', error);
+      Alert.alert('Error', 'Failed to export data.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeleteAllData = () => {
+    Alert.alert(
+      'Delete All Data',
+      'This will permanently delete all your passwords, notes, and settings. This action cannot be undone.\n\nAre you sure you want to continue?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete All',
+          style: 'destructive',
+          onPress: () => confirmDeleteAllData(),
+        },
+      ]
+    );
+  };
+
+  const confirmDeleteAllData = async () => {
+    try {
+      setIsLoading(true);
+      const success = await clearAllData();
+      
+      if (success) {
+        Alert.alert(
+          'Data Deleted',
+          'All data has been deleted successfully. The app will restart.',
+          [{ text: 'OK', onPress: () => dispatch({ type: 'LOCK_APP' }) }]
+        );
+      } else {
+        Alert.alert('Error', 'Failed to delete data. Please try again.');
+      }
+    } catch (error) {
+      console.error('Delete data error:', error);
+      Alert.alert('Error', 'Failed to delete data. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleChangeMasterPassword = () => {
+    Alert.prompt(
+      'Change Master Password',
+      'Enter your current master password:',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Continue',
+          onPress: (currentPassword) => {
+            if (currentPassword) {
+              promptNewPassword(currentPassword);
+            }
+          },
+        },
+      ],
+      'secure-text'
+    );
+  };
+
+  const promptNewPassword = (currentPassword: string) => {
+    Alert.prompt(
+      'New Master Password',
+      'Enter your new master password:',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Change',
+          onPress: (newPassword) => {
+            if (newPassword) {
+              confirmNewPassword(currentPassword, newPassword);
+            }
+          },
+        },
+      ],
+      'secure-text'
+    );
+  };
+
+  const confirmNewPassword = (currentPassword: string, newPassword: string) => {
+    Alert.prompt(
+      'Confirm New Password',
+      'Re-enter your new master password:',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Confirm',
+          onPress: (confirmPassword) => {
+            if (confirmPassword === newPassword) {
+              changeMasterPasswordAsync(currentPassword, newPassword);
+            } else {
+              Alert.alert('Error', 'Passwords do not match. Please try again.');
+            }
+          },
+        },
+      ],
+      'secure-text'
+    );
+  };
+
+  const changeMasterPasswordAsync = async (currentPassword: string, newPassword: string) => {
+    try {
+      setIsLoading(true);
+      const success = await changeMasterPassword(currentPassword, newPassword);
+      
+      if (success) {
+        Alert.alert(
+          'Success',
+          'Master password has been changed successfully. Please log in again with your new password.',
+          [{ text: 'OK', onPress: () => dispatch({ type: 'LOCK_APP' }) }]
+        );
+      } else {
+        Alert.alert('Error', 'Failed to change master password. Please check your current password and try again.');
+      }
+    } catch (error) {
+      console.error('Change password error:', error);
+      Alert.alert('Error', 'Failed to change master password. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const SettingRow = ({ 
+    title, 
+    subtitle, 
+    icon, 
+    value, 
+    onToggle,
+    type = 'switch',
+    disabled = false
+  }: {
+    title: string;
+    subtitle: string;
+    icon: keyof typeof Ionicons.glyphMap;
+    value: boolean;
+    onToggle: (value?: boolean) => void;
+    type?: 'switch' | 'button';
+    disabled?: boolean;
+  }) => {
+
+    return (
+      <ReachPressable
+        style={[styles.settingRow, disabled && styles.disabledRow]}
+        onPress={() => {
+          if (type === 'button' && !disabled) onToggle();
+        }}
+        disabled={disabled}
+        reachScale={1.02}
+        pressScale={0.98}
       >
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          <Text style={styles.title}>Settings</Text>
-          <Text style={styles.subtitle}>Coming Soon...</Text>
-        </ScrollView>
-      </LinearGradient>
-    </SafeAreaView>
+        <View style={styles.settingBlur}>
+          <View style={styles.settingContent}>
+            <View style={[styles.settingIcon, value && !disabled && styles.settingIconActive]}>
+              <Ionicons 
+                name={icon} 
+                size={24} 
+                color={disabled ? Colors.dark.textMuted : (value ? Colors.dark.primary : Colors.dark.textMuted)} 
+              />
+            </View>
+            <View style={styles.settingTextContainer}>
+              <Text style={[styles.settingTitle, disabled && styles.disabledText]}>{title}</Text>
+              <Text style={[styles.settingSubtitle, disabled && styles.disabledText]}>{subtitle}</Text>
+            </View>
+            {type === 'switch' && (
+              <Switch
+                value={value}
+                onValueChange={(newValue) => !disabled && onToggle(newValue)}
+                trackColor={{ 
+                  false: Colors.dark.surface, 
+                  true: Colors.dark.primary + '40' 
+                }}
+                thumbColor={value ? Colors.dark.neonGreen : Colors.dark.textMuted}
+                disabled={disabled}
+              />
+            )}
+            {type === 'button' && (
+              <Ionicons 
+                name="chevron-forward" 
+                size={20} 
+                color={disabled ? Colors.dark.textMuted : Colors.dark.textSecondary} 
+              />
+            )}
+          </View>
+        </View>
+      </ReachPressable>
+    );
+  };
+
+  const ActionButton = ({
+    title,
+    subtitle,
+    icon,
+    onPress,
+    color = Colors.dark.primary,
+    disabled = false
+  }: {
+    title: string;
+    subtitle: string;
+    icon: keyof typeof Ionicons.glyphMap;
+    onPress: () => void;
+    color?: string;
+    disabled?: boolean;
+  }) => {
+
+    return (
+      <ReachPressable
+        style={[styles.actionButton, disabled && styles.disabledRow]}
+        onPress={() => !disabled && onPress()}
+        disabled={disabled}
+        reachScale={1.03}
+        pressScale={0.97}
+      >
+        <LinearGradient
+          colors={[color + '20', color + '40']}
+          style={styles.actionGradient}
+        >
+          <Ionicons name={icon} size={28} color={disabled ? Colors.dark.textMuted : color} />
+          <View style={styles.actionText}>
+            <Text style={[styles.actionTitle, { color: disabled ? Colors.dark.textMuted : color }]}>{title}</Text>
+            <Text style={[styles.actionSubtitle, disabled && styles.disabledText]}>{subtitle}</Text>
+          </View>
+        </LinearGradient>
+      </ReachPressable>
+    );
+  };
+
+  return (
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <StarField />
+      
+      <FloatingHexagon style={{ top: '10%', right: '10%' }} />
+      <FloatingHexagon style={{ top: '60%', left: '5%' }} />
+      <FloatingHexagon style={{ top: '80%', right: '20%' }} />
+
+      <ScrollView 
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 110 }]}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.header}>
+          <View style={styles.iconContainer}>
+            <Svg width={100} height={100} viewBox="0 0 100 100">
+              <Defs>
+                <SvgLinearGradient id="settingsGradient" x1="0" y1="0" x2="1" y2="1">
+                  <Stop offset="0%" stopColor={Colors.dark.primary} />
+                  <Stop offset="100%" stopColor={Colors.dark.neonGreen} />
+                </SvgLinearGradient>
+              </Defs>
+              <Circle cx="50" cy="50" r="35" fill="url(#settingsGradient)" opacity={0.3} />
+            </Svg>
+            <Ionicons name="settings" size={50} color={Colors.dark.primary} style={styles.headerIcon} />
+          </View>
+          <Text style={styles.title}>Mission Settings</Text>
+          <Text style={styles.subtitle}>Configure your space vault</Text>
+        </View>
+
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="shield-checkmark" size={24} color={Colors.dark.primary} />
+            <Text style={styles.sectionTitle}>Security Protocol</Text>
+          </View>
+          <View style={styles.settingsGroup}>
+            <SettingRow
+              title="Biometric Unlock"
+              subtitle={biometricAvailable ? "Use fingerprint or face recognition" : "Not available on this device"}
+              icon="finger-print"
+              value={state.settings.biometricEnabled}
+              onToggle={handleBiometricToggle}
+              disabled={!biometricAvailable || isLoading}
+            />
+            <SettingRow
+              title="Auto-Lock Timeout"
+              subtitle={state.settings.autoLockTimeout === 0 ? "Never" : `${state.settings.autoLockTimeout} minute${state.settings.autoLockTimeout > 1 ? 's' : ''}`}
+              icon="timer"
+              value={state.settings.autoLockTimeout > 0}
+              onToggle={handleAutoLockTimeoutChange}
+              type="button"
+              disabled={isLoading}
+            />
+            <SettingRow
+              title="Show Password Previews"
+              subtitle="Display password hints in lists"
+              icon="eye"
+              value={state.settings.showPasswordPreviews}
+              onToggle={(value) => updateSetting('showPasswordPreviews', value)}
+              disabled={isLoading}
+            />
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="color-palette" size={24} color={Colors.dark.neonGreen} />
+            <Text style={styles.sectionTitle}>Interface Control</Text>
+          </View>
+          <View style={styles.settingsGroup}>
+            <SettingRow
+              title="Dark Mode"
+              subtitle="Space-themed dark interface"
+              icon="moon"
+              value={state.settings.darkModeEnabled}
+              onToggle={(value) => updateSetting('darkModeEnabled', value)}
+              disabled={isLoading}
+            />
+            <SettingRow
+              title="Default Password Length"
+              subtitle={`${state.settings.defaultPasswordLength} characters`}
+              icon="key"
+              value={state.settings.defaultPasswordLength > 12}
+              onToggle={handlePasswordLengthChange}
+              type="button"
+              disabled={isLoading}
+            />
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="cloud" size={24} color="#8b5cf6" />
+            <Text style={styles.sectionTitle}>Data Management</Text>
+          </View>
+          <View style={styles.settingsGroup}>
+            <SettingRow
+              title="Security Notifications"
+              subtitle="Weak password and breach alerts"
+              icon="shield-checkmark"
+              value={state.settings.notifications.weakPasswordAlerts}
+              onToggle={(value) => updateSetting('notifications', {
+                ...state.settings.notifications,
+                weakPasswordAlerts: value,
+                dataBreachAlerts: value,
+              })}
+              disabled={isLoading}
+            />
+            <SettingRow
+              title="Security Tips"
+              subtitle="Helpful security reminders"
+              icon="bulb"
+              value={state.settings.notifications.securityTips}
+              onToggle={(value) => updateSetting('notifications', {
+                ...state.settings.notifications,
+                securityTips: value,
+              })}
+              disabled={isLoading}
+            />
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="cog" size={24} color={Colors.dark.warning} />
+            <Text style={styles.sectionTitle}>Mission Actions</Text>
+          </View>
+          <View style={styles.actionsGroup}>
+            <ActionButton
+              title="Export Data"
+              subtitle="Share encrypted backup data"
+              icon="download"
+              onPress={handleExportData}
+              disabled={isLoading}
+            />
+            <ActionButton
+              title="Change Master Password"
+              subtitle="Update your master password"
+              icon="key"
+              onPress={handleChangeMasterPassword}
+              disabled={isLoading}
+            />
+            <ActionButton
+              title="Delete All Data"
+              subtitle="Permanently delete all vault data"
+              icon="trash"
+              color={Colors.dark.error}
+              onPress={handleDeleteAllData}
+              disabled={isLoading}
+            />
+          </View>
+        </View>
+
+        <View style={styles.footer}>
+          <Text style={styles.appVersion}>Passport v1.0.0</Text>
+          <Text style={styles.footerText}>
+            {isLoading ? 'Saving changes...' : 'Built for space explorers 🚀'}
+          </Text>
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -30,22 +594,148 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.dark.background,
   },
-  gradient: {
-    flex: 1,
-  },
   scrollContent: {
-    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  iconContainer: {
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 16,
+    position: 'relative',
+  },
+  headerIcon: {
+    position: 'absolute',
   },
   title: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: 'bold',
     color: Colors.dark.text,
-    marginBottom: 16,
+    marginBottom: 8,
+    textAlign: 'center',
   },
   subtitle: {
     fontSize: 16,
     color: Colors.dark.textSecondary,
+    textAlign: 'center',
+  },
+  section: {
+    marginBottom: 32,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingHorizontal: 4,
+    gap: 12,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: Colors.dark.text,
+  },
+  settingsGroup: {
+    backgroundColor: 'rgba(26, 26, 27, 0.4)',
+    borderRadius: 20,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  actionsGroup: {
+    gap: 8,
+  },
+  settingRow: {
+    marginBottom: 4,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  settingBlur: {
+    backgroundColor: 'rgba(26, 26, 27, 0.6)',
+  },
+  settingContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 16,
+  },
+  settingIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  settingTextContainer: {
+    flex: 1,
+  },
+  settingTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.dark.text,
+    marginBottom: 4,
+  },
+  settingSubtitle: {
+    fontSize: 14,
+    color: Colors.dark.textSecondary,
+  },
+  actionButton: {
+    marginBottom: 12,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  actionGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 16,
+  },
+  actionText: {
+    marginLeft: 16,
+    flex: 1,
+  },
+  actionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  actionSubtitle: {
+    fontSize: 14,
+    color: Colors.dark.textSecondary,
+  },
+  footer: {
+    alignItems: 'center',
+    paddingVertical: 32,
+    marginTop: 20,
+  },
+  appVersion: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.dark.text,
+    marginBottom: 8,
+  },
+  footerText: {
+    fontSize: 14,
+    color: Colors.dark.textSecondary,
+  },
+  disabledRow: {
+    opacity: 0.5,
+  },
+  settingIconActive: {
+    backgroundColor: Colors.dark.primary + '20',
+    borderColor: Colors.dark.primary + '40',
+    borderWidth: 1,
+  },
+  disabledText: {
+    opacity: 0.6,
   },
 });

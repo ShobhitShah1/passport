@@ -1,5 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
+import * as LocalAuthentication from "expo-local-authentication";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, Vibration, View } from "react-native";
@@ -8,6 +10,7 @@ import Animated, {
   useSharedValue,
   withSequence,
   withTiming,
+  withSpring,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, {
@@ -20,6 +23,8 @@ import Svg, {
 import Colors from "@/constants/Colors";
 import { useAppContext } from "@/hooks/useAppContext";
 import PinKeypad from "@/components/ui/PinKeypad";
+import { ReachPressable } from "@/components/ui/ReachPressable";
+import { loadSettings } from "@/services/storage/secureStorage";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const AnimatedView = Animated.createAnimatedComponent(View);
@@ -27,13 +32,15 @@ const AnimatedView = Animated.createAnimatedComponent(View);
 // PIN will be validated against stored master PIN
 
 const StarField = React.memo(() => {
-  const stars = React.useMemo(() => 
-    Array.from({ length: 15 }, (_, i) => ({
-      key: i,
-      left: `${Math.random() * 100}%`,
-      top: `${Math.random() * 100}%`,
-      size: Math.random() * 1.5 + 0.5,
-    })), []
+  const stars = React.useMemo(
+    () =>
+      Array.from({ length: 15 }, (_, i) => ({
+        key: i,
+        left: `${Math.random() * 100}%`,
+        top: `${Math.random() * 100}%`,
+        size: Math.random() * 1.5 + 0.5,
+      })),
+    []
   );
 
   return (
@@ -42,13 +49,13 @@ const StarField = React.memo(() => {
         <View
           key={star.key}
           style={{
-            position: 'absolute',
+            position: "absolute",
             left: star.left as any,
             top: star.top as any,
             width: star.size,
             height: star.size,
             borderRadius: star.size / 2,
-            backgroundColor: 'white',
+            backgroundColor: "white",
             opacity: 0.3,
           }}
         />
@@ -57,13 +64,186 @@ const StarField = React.memo(() => {
   );
 });
 
+// Biometric Authentication Button Component
+const BiometricAuthButton = React.memo(
+  ({
+    icon,
+    text,
+    onPress,
+    isAuthenticating,
+    scale,
+    glow,
+  }: {
+    icon: string;
+    text: string;
+    onPress: () => void;
+    isAuthenticating: boolean;
+    scale: Animated.SharedValue<number>;
+    glow: Animated.SharedValue<number>;
+  }) => {
+    const scaleStyle = useAnimatedStyle(() => ({
+      transform: [{ scale: scale.value }],
+    }));
+
+    const glowStyle = useAnimatedStyle(() => ({
+      shadowOpacity: glow.value,
+    }));
+
+    return (
+      <View style={styles.biometricAuthContainer}>
+        <Animated.View style={[styles.biometricButton, scaleStyle, glowStyle]}>
+          <ReachPressable
+            onPress={onPress}
+            disabled={isAuthenticating}
+            reachScale={1}
+            pressScale={1}
+          >
+            <LinearGradient
+              colors={[Colors.dark.neonGreen, Colors.dark.primary]}
+              style={styles.biometricButtonContent}
+            >
+              <Ionicons
+                name={isAuthenticating ? "sync" : (icon as any)}
+                size={24}
+                color="#0a0a0b"
+              />
+              <Text style={styles.biometricButtonText}>
+                {isAuthenticating ? "Authenticating..." : `Use ${text}`}
+              </Text>
+            </LinearGradient>
+          </ReachPressable>
+        </Animated.View>
+
+        <Text style={styles.biometricOrText}>or</Text>
+      </View>
+    );
+  }
+);
+
 function AuthScreen() {
   const [pin, setPin] = useState("");
   const [failedAttempts, setFailedAttempts] = useState(0);
+  const [biometricType, setBiometricType] = useState<
+    LocalAuthentication.AuthenticationType[]
+  >([]);
+  const [showBiometric, setShowBiometric] = useState(false);
+  const [biometricEnabled, setBiometricEnabled] = useState(false);
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
   const insets = useSafeAreaInsets();
 
   const shakeAnimation = useSharedValue(0);
+  const biometricScale = useSharedValue(1);
+  const biometricGlow = useSharedValue(0.3);
   const { authenticate } = useAppContext();
+
+  useEffect(() => {
+    initializeAuth();
+  }, []);
+
+  const initializeAuth = async () => {
+    // Check user's biometric preference
+    const settings = await loadSettings();
+    const userEnabledBiometric = settings?.biometricEnabled || false;
+    setBiometricEnabled(userEnabledBiometric);
+
+    if (userEnabledBiometric) {
+      await checkBiometricAvailability();
+    }
+  };
+
+  const checkBiometricAvailability = async () => {
+    try {
+      const compatible = await LocalAuthentication.hasHardwareAsync();
+      if (compatible) {
+        const enrolled = await LocalAuthentication.isEnrolledAsync();
+        if (enrolled) {
+          const types =
+            await LocalAuthentication.supportedAuthenticationTypesAsync();
+          setBiometricType(types);
+          setShowBiometric(true);
+          // Auto-trigger biometric authentication on load
+          setTimeout(() => {
+            handleBiometricAuth();
+          }, 800);
+        } else {
+          // Hardware available but no biometrics enrolled
+          setShowBiometric(false);
+        }
+      }
+    } catch (error) {
+      console.log("Biometric check error:", error);
+      setShowBiometric(false);
+    }
+  };
+
+  const getBiometricIcon = () => {
+    if (
+      biometricType.includes(
+        LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION
+      )
+    ) {
+      return "happy-outline";
+    }
+    if (
+      biometricType.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)
+    ) {
+      return "finger-print";
+    }
+    return "lock-closed";
+  };
+
+  const getBiometricText = () => {
+    if (
+      biometricType.includes(
+        LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION
+      )
+    ) {
+      return "Face ID";
+    }
+    if (
+      biometricType.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)
+    ) {
+      return "Fingerprint";
+    }
+    return "Biometric";
+  };
+
+  const handleBiometricAuth = async () => {
+    if (isAuthenticating) return;
+
+    setIsAuthenticating(true);
+    biometricScale.value = withSpring(0.95, {}, () => {
+      biometricScale.value = withSpring(1);
+    });
+
+    try {
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: "Unlock your Secure Vault",
+        biometricsSecurityLevel: "strong",
+        cancelLabel: "Use PIN",
+        fallbackLabel: "Enter PIN",
+      });
+
+      if (result.success) {
+        // Biometric authentication successful - proceed to app
+        router.replace("/(tabs)");
+      } else if (
+        result.error === "UserCancel" ||
+        result.error === "UserFallback"
+      ) {
+        // User cancelled or chose to use PIN - show PIN input
+        setShowBiometric(false);
+      } else {
+        // Other errors - show PIN as fallback
+        setShowBiometric(false);
+      }
+    } catch (error) {
+      console.log("Biometric auth error:", error);
+      setShowBiometric(false);
+    } finally {
+      setIsAuthenticating(false);
+    }
+  };
 
   const handleDigitPress = (digit: string) => {
     if (pin.length < 4) {
@@ -111,6 +291,13 @@ function AuthScreen() {
     transform: [{ translateX: shakeAnimation.value }],
   }));
 
+  // Start gentle glow animation for biometric button
+  React.useEffect(() => {
+    biometricGlow.value = withSequence(
+      withTiming(0.8, { duration: 2000 }),
+      withTiming(0.3, { duration: 2000 })
+    );
+  }, []);
 
   return (
     <View
@@ -154,8 +341,24 @@ function AuthScreen() {
           </View>
 
           <Text style={styles.title}>Welcome Back</Text>
-          <Text style={styles.subtitle}>Enter your 4-digit PIN</Text>
+          <Text style={styles.subtitle}>
+            {showBiometric && biometricEnabled && biometricType.length > 0
+              ? `Use ${getBiometricText()} or enter your PIN`
+              : "Enter your 4-digit PIN"}
+          </Text>
         </View>
+
+        {/* Biometric Authentication Option */}
+        {showBiometric && biometricEnabled && biometricType.length > 0 && (
+          <BiometricAuthButton
+            icon={getBiometricIcon()}
+            text={getBiometricText()}
+            onPress={handleBiometricAuth}
+            isAuthenticating={isAuthenticating}
+            scale={biometricScale}
+            glow={biometricGlow}
+          />
+        )}
 
         <AnimatedView style={[styles.pinContainer, animatedContainerStyle]}>
           <PinKeypad
@@ -177,6 +380,30 @@ function AuthScreen() {
               {failedAttempts} failed attempt{failedAttempts === 1 ? "" : "s"}
             </Text>
           </BlurView>
+        )}
+
+        {/* Switch to PIN option */}
+        {!showBiometric && biometricEnabled && biometricType.length > 0 && (
+          <View style={styles.switchAuthContainer}>
+            <ReachPressable
+              style={styles.switchAuthButton}
+              onPress={() => {
+                setShowBiometric(true);
+                setTimeout(() => handleBiometricAuth(), 300);
+              }}
+              reachScale={1.02}
+              pressScale={0.98}
+            >
+              <Ionicons
+                name={getBiometricIcon() as any}
+                size={20}
+                color={Colors.dark.primary}
+              />
+              <Text style={styles.switchAuthText}>
+                Use {getBiometricText()}
+              </Text>
+            </ReachPressable>
+          </View>
         )}
       </View>
     </View>
@@ -239,6 +466,61 @@ const styles = StyleSheet.create({
     color: Colors.dark.error,
     fontSize: 14,
     fontWeight: "500",
+  },
+  // Biometric Auth Styles
+  biometricAuthContainer: {
+    alignItems: "center",
+    marginVertical: 32,
+  },
+  biometricButton: {
+    borderRadius: 20,
+    overflow: "visible",
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  biometricButtonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 20,
+    paddingHorizontal: 32,
+    gap: 12,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+  },
+  biometricButtonText: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#0a0a0b",
+  },
+  biometricOrText: {
+    fontSize: 16,
+    color: Colors.dark.textMuted,
+    marginVertical: 20,
+    textAlign: "center",
+  },
+  switchAuthContainer: {
+    alignItems: "center",
+    marginTop: 24,
+  },
+  switchAuthButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 16,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    gap: 8,
+  },
+  switchAuthText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: Colors.dark.primary,
   },
 });
 

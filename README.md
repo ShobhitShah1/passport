@@ -333,5 +333,3 @@ expo start --android
 This project is licensed under the MIT License.
 
 ---
-
-*Building secure, stylish password management for the modern user with cutting-edge Gen-Z aesthetics.*

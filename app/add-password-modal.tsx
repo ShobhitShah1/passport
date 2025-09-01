@@ -226,11 +226,7 @@ const HolographicHeader = ({
           reachScale={1.1}
           pressScale={0.9}
         >
-          <Ionicons
-            name="close-circle"
-            size={32}
-            color={Colors.dark.error}
-          />
+          <Ionicons name="close-circle" size={32} color={Colors.dark.error} />
         </ReachPressable>
       </View>
     </View>
@@ -767,6 +763,7 @@ export default function AddPasswordModal({
                 leftIcon="lock-closed-outline"
                 variant="password"
                 showPasswordToggle={true}
+                containerStyle={{ marginBottom: 0 }}
               />
 
               {formData.password.length > 0 && (
@@ -953,7 +950,7 @@ export default function AddPasswordModal({
               style={styles.actionGradient}
             >
               <Button
-                title="ABORT MISSION"
+                title="ABORT"
                 onPress={onClose}
                 variant="outline"
                 style={styles.cancelButton}
@@ -1085,7 +1082,7 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   strengthMeter: {
-    marginTop: 16,
+    marginTop: 5,
     padding: 20,
     backgroundColor: "rgba(0, 0, 0, 0.3)",
     borderRadius: 12,
@@ -1113,7 +1110,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   generateButton: {
-    marginTop: 16,
     alignSelf: "stretch",
   },
   customField: {

@@ -22,7 +22,7 @@
         "backgroundColor": "#000000"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.shobhit09.passport"
+      "package": "com.passport.passwords"
     },
     "web": {
       "bundler": "metro",
@@ -31,7 +31,7 @@
     },
     "plugins": [
       "expo-router",
-       [
+      [
         "react-native-edge-to-edge",
         {
           "android": {
@@ -39,7 +39,8 @@
             "enforceNavigationBarContrast": false
           }
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true

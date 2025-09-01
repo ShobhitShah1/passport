@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
 import { AppState, AppAction, UserSettings } from '../types';
-import { loadPasswords, loadSecureNotes, loadSettings, isAppSetup } from '../services/storage/secureStorage';
+import { loadPasswords, loadSecureNotes, loadSettings, isAppSetup, savePasswords, saveSecureNotes, saveSettings } from '../services/storage/secureStorage';
 
 const initialState: AppState = {
   isAuthenticated: false,
@@ -151,6 +151,15 @@ interface AppContextType {
   lockApp: () => void;
   loadUserData: (masterPassword: string) => Promise<void>;
   isSetupComplete: () => Promise<boolean>;
+  // Data persistence functions
+  saveData: () => Promise<void>;
+  addPassword: (password: any) => Promise<void>;
+  updatePassword: (password: any) => Promise<void>;
+  deletePassword: (id: string) => Promise<void>;
+  addSecureNote: (note: any) => Promise<void>;
+  updateSecureNote: (note: any) => Promise<void>;
+  deleteSecureNote: (id: string) => Promise<void>;
+  updateSettings: (settings: Partial<UserSettings>) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -221,6 +230,78 @@ export function AppProvider({ children }: AppProviderProps) {
     return await isAppSetup();
   };
 
+  // Data persistence functions
+  const saveData = async () => {
+    if (!state.isAuthenticated || !state.masterPassword) {
+      throw new Error('Not authenticated - please log in again');
+    }
+    
+    try {
+      await Promise.all([
+        savePasswords(state.passwords, state.masterPassword),
+        saveSecureNotes(state.secureNotes, state.masterPassword),
+        saveSettings(state.settings)
+      ]);
+    } catch (error) {
+      console.error('Failed to save data:', error);
+      throw error;
+    }
+  };
+
+  const addPassword = async (password: any) => {
+    dispatch({ type: 'ADD_PASSWORD', payload: password });
+    if (state.masterPassword) {
+      const newPasswords = [...state.passwords, password];
+      await savePasswords(newPasswords, state.masterPassword);
+    }
+  };
+
+  const updatePassword = async (password: any) => {
+    dispatch({ type: 'UPDATE_PASSWORD', payload: password });
+    if (state.masterPassword) {
+      const updatedPasswords = state.passwords.map(p => p.id === password.id ? password : p);
+      await savePasswords(updatedPasswords, state.masterPassword);
+    }
+  };
+
+  const deletePassword = async (id: string) => {
+    dispatch({ type: 'DELETE_PASSWORD', payload: id });
+    if (state.masterPassword) {
+      const filteredPasswords = state.passwords.filter(p => p.id !== id);
+      await savePasswords(filteredPasswords, state.masterPassword);
+    }
+  };
+
+  const addSecureNote = async (note: any) => {
+    dispatch({ type: 'ADD_SECURE_NOTE', payload: note });
+    if (state.masterPassword) {
+      const newNotes = [...state.secureNotes, note];
+      await saveSecureNotes(newNotes, state.masterPassword);
+    }
+  };
+
+  const updateSecureNote = async (note: any) => {
+    dispatch({ type: 'UPDATE_SECURE_NOTE', payload: note });
+    if (state.masterPassword) {
+      const updatedNotes = state.secureNotes.map(n => n.id === note.id ? note : n);
+      await saveSecureNotes(updatedNotes, state.masterPassword);
+    }
+  };
+
+  const deleteSecureNote = async (id: string) => {
+    dispatch({ type: 'DELETE_SECURE_NOTE', payload: id });
+    if (state.masterPassword) {
+      const filteredNotes = state.secureNotes.filter(n => n.id !== id);
+      await saveSecureNotes(filteredNotes, state.masterPassword);
+    }
+  };
+
+  const updateAppSettings = async (newSettings: Partial<UserSettings>) => {
+    const updatedSettings = { ...state.settings, ...newSettings };
+    dispatch({ type: 'UPDATE_SETTINGS', payload: newSettings });
+    await saveSettings(updatedSettings);
+  };
+
   const contextValue: AppContextType = {
     state,
     dispatch,
@@ -228,6 +309,14 @@ export function AppProvider({ children }: AppProviderProps) {
     lockApp,
     loadUserData,
     isSetupComplete,
+    saveData,
+    addPassword,
+    updatePassword,
+    deletePassword,
+    addSecureNote,
+    updateSecureNote,
+    deleteSecureNote,
+    updateSettings: updateAppSettings,
   };
 
   return (

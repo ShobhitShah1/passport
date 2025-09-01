@@ -1,6 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { useMemo, useState } from "react";
+import * as LocalAuthentication from "expo-local-authentication";
+import { LinearGradient } from "expo-linear-gradient";
+import React, { useMemo, useState, useEffect } from "react";
 import {
   Alert,
   Pressable,
@@ -20,7 +22,12 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Button from "@/components/ui/Button";
 import PinKeypad from "@/components/ui/PinKeypad";
-import { setupMasterPassword } from "@/services/storage/secureStorage";
+import { ReachPressable } from "@/components/ui/ReachPressable";
+import {
+  setupMasterPassword,
+  saveSettings,
+  loadSettings,
+} from "@/services/storage/secureStorage";
 
 import Colors from "@/constants/Colors";
 
@@ -59,15 +66,163 @@ const ParallaxStarfield = React.memo(() => {
   );
 });
 
+// Biometric Setup Component
+const BiometricSetup = React.memo(
+  ({
+    biometricIcon,
+    biometricText,
+    onEnable,
+    onSkip,
+    isLoading,
+  }: {
+    biometricIcon: string;
+    biometricText: string;
+    onEnable: () => void;
+    onSkip: () => void;
+    isLoading: boolean;
+  }) => {
+    const glowAnimation = useSharedValue(0.3);
+    const scaleAnimation = useSharedValue(1);
+
+    React.useEffect(() => {
+      glowAnimation.value = withSequence(
+        withTiming(0.8, { duration: 1500 }),
+        withTiming(0.3, { duration: 1500 })
+      );
+
+      scaleAnimation.value = withSequence(
+        withTiming(1.05, { duration: 1500 }),
+        withTiming(1, { duration: 1500 })
+      );
+    }, []);
+
+    const glowStyle = useAnimatedStyle(() => ({
+      shadowOpacity: glowAnimation.value,
+    }));
+
+    const scaleStyle = useAnimatedStyle(() => ({
+      transform: [{ scale: scaleAnimation.value }],
+    }));
+
+    return (
+      <View style={styles.biometricContainer}>
+        <Animated.View
+          style={[styles.biometricIconContainer, glowStyle, scaleStyle]}
+        >
+          <LinearGradient
+            colors={[Colors.dark.neonGreen, Colors.dark.primary]}
+            style={styles.biometricIconGradient}
+          >
+            <Ionicons name={biometricIcon as any} size={48} color="#0a0a0b" />
+          </LinearGradient>
+        </Animated.View>
+
+        <Text style={styles.biometricTitle}>Enable {biometricText}?</Text>
+        <Text style={styles.biometricSubtitle}>
+          Use {biometricText.toLowerCase()} to unlock your vault quickly and
+          securely. You can always use your PIN as backup.
+        </Text>
+
+        <View style={styles.biometricActions}>
+          <ReachPressable
+            style={styles.biometricEnableButton}
+            onPress={onEnable}
+            reachScale={1.02}
+            pressScale={0.98}
+            disabled={isLoading}
+          >
+            <LinearGradient
+              colors={[Colors.dark.neonGreen, Colors.dark.primary]}
+              style={styles.biometricEnableGradient}
+            >
+              <Ionicons name="checkmark-circle" size={24} color="#0a0a0b" />
+              <Text style={styles.biometricEnableText}>
+                Enable {biometricText}
+              </Text>
+            </LinearGradient>
+          </ReachPressable>
+
+          <ReachPressable
+            style={styles.biometricSkipButton}
+            onPress={onSkip}
+            reachScale={1.02}
+            pressScale={0.98}
+            disabled={isLoading}
+          >
+            <View style={styles.biometricSkipContent}>
+              <Text style={styles.biometricSkipText}>
+                Continue with PIN only
+              </Text>
+            </View>
+          </ReachPressable>
+        </View>
+      </View>
+    );
+  }
+);
 
 // --- Main Setup Screen ---
 export default function SetupScreen() {
   const [pin, setPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
-  const [step, setStep] = useState<'create' | 'confirm'>('create');
+  const [step, setStep] = useState<"create" | "confirm" | "biometric">(
+    "create"
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [biometricType, setBiometricType] = useState<
+    LocalAuthentication.AuthenticationType[]
+  >([]);
+  const [isBiometricEnabled, setIsBiometricEnabled] = useState(false);
   const insets = useSafeAreaInsets();
+
+  useEffect(() => {
+    checkBiometricSupport();
+  }, []);
+
+  const checkBiometricSupport = async () => {
+    const compatible = await LocalAuthentication.hasHardwareAsync();
+    if (compatible) {
+      const enrolled = await LocalAuthentication.isEnrolledAsync();
+      if (enrolled) {
+        const types =
+          await LocalAuthentication.supportedAuthenticationTypesAsync();
+        setBiometricType(types);
+      }
+    }
+  };
+
+  const getBiometricIcon = () => {
+    if (
+      biometricType.includes(
+        LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION
+      )
+    ) {
+      return "happy-outline";
+    }
+    if (
+      biometricType.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)
+    ) {
+      return "finger-print";
+    }
+    return "lock-closed";
+  };
+
+  const getBiometricText = () => {
+    if (
+      biometricType.includes(
+        LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION
+      )
+    ) {
+      return "Face ID";
+    }
+    if (
+      biometricType.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)
+    ) {
+      return "Fingerprint";
+    }
+    return "Biometric";
+  };
 
   const buttonScale = useSharedValue(1);
   const shakeAnimation = useSharedValue(0);
@@ -76,7 +231,7 @@ export default function SetupScreen() {
   const canProceed = pin.length === 4;
 
   const handleDigitPress = (digit: string) => {
-    if (step === 'create') {
+    if (step === "create") {
       if (pin.length < 4) {
         const newPin = pin + digit;
         setPin(newPin);
@@ -87,7 +242,7 @@ export default function SetupScreen() {
         const newConfirmPin = confirmPin + digit;
         setConfirmPin(newConfirmPin);
         setError("");
-        
+
         if (newConfirmPin.length === 4) {
           setTimeout(() => validatePins(pin, newConfirmPin), 300);
         }
@@ -96,17 +251,21 @@ export default function SetupScreen() {
   };
 
   const handleBackspace = () => {
-    if (step === 'create') {
-      setPin(prev => prev.slice(0, -1));
+    if (step === "create") {
+      setPin((prev) => prev.slice(0, -1));
     } else {
-      setConfirmPin(prev => prev.slice(0, -1));
+      setConfirmPin((prev) => prev.slice(0, -1));
     }
     setError("");
   };
 
   const validatePins = (originalPin: string, confirmationPin: string) => {
     if (originalPin === confirmationPin) {
-      handleSetup(originalPin);
+      if (biometricType.length > 0) {
+        setStep("biometric");
+      } else {
+        handleSetup(originalPin);
+      }
     } else {
       setError("PINs don't match. Try again.");
       shakeAnimation.value = withSequence(
@@ -118,7 +277,7 @@ export default function SetupScreen() {
       );
       setTimeout(() => {
         setConfirmPin("");
-        setStep('create');
+        setStep("create");
         setPin("");
       }, 1500);
     }
@@ -126,16 +285,21 @@ export default function SetupScreen() {
 
   const proceedToConfirm = () => {
     if (pin.length === 4) {
-      setStep('confirm');
+      setStep("confirm");
     }
   };
 
   const handleSetup = async (masterPin: string) => {
     setIsLoading(true);
     try {
-      // Use PIN as master password for now - in production you'd want to derive a proper password
       const success = await setupMasterPassword(masterPin);
       if (success) {
+        // Update biometric preference in settings
+        const settings = await loadSettings();
+        if (settings) {
+          settings.biometricEnabled = isBiometricEnabled;
+          await saveSettings(settings);
+        }
         router.replace("/(tabs)");
       } else {
         Alert.alert("Setup Failed", "Failed to set up your master PIN.");
@@ -145,6 +309,16 @@ export default function SetupScreen() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const proceedWithoutBiometric = () => {
+    setIsBiometricEnabled(false);
+    handleSetup(pin);
+  };
+
+  const enableBiometric = () => {
+    setIsBiometricEnabled(true);
+    handleSetup(pin);
   };
 
   const handleButtonPress = () => {
@@ -178,62 +352,57 @@ export default function SetupScreen() {
           </View>
           <Text style={styles.title}>Secure Your Vault</Text>
           <Text style={styles.subtitle}>
-            {step === 'create' 
-              ? 'Create a 4-digit PIN to protect your passwords'
-              : 'Confirm your PIN'
-            }
+            {step === "create"
+              ? "Create a 4-digit PIN to protect your passwords"
+              : step === "confirm"
+              ? "Confirm your PIN"
+              : "Secure your vault with biometric authentication"}
           </Text>
         </View>
 
         <Animated.View style={[styles.pinSection, shakeStyle]}>
-          <PinKeypad
-            pin={step === 'create' ? pin : confirmPin}
-            onDigitPress={handleDigitPress}
-            onBackspace={handleBackspace}
-            maxLength={4}
-          />
+          {step !== "biometric" ? (
+            <>
+              <PinKeypad
+                pin={step === "create" ? pin : confirmPin}
+                onDigitPress={handleDigitPress}
+                onBackspace={handleBackspace}
+                maxLength={4}
+              />
 
-          {error && (
-            <View style={styles.errorContainer}>
-              <Ionicons name="warning-outline" size={16} color={Colors.dark.error} />
-              <Text style={styles.errorText}>{error}</Text>
-            </View>
+              {error && (
+                <View style={styles.errorContainer}>
+                  <Ionicons
+                    name="warning-outline"
+                    size={16}
+                    color={Colors.dark.error}
+                  />
+                  <Text style={styles.errorText}>{error}</Text>
+                </View>
+              )}
+            </>
+          ) : (
+            <BiometricSetup
+              biometricIcon={getBiometricIcon()}
+              biometricText={getBiometricText()}
+              onEnable={enableBiometric}
+              onSkip={proceedWithoutBiometric}
+              isLoading={isLoading}
+            />
           )}
         </Animated.View>
 
-        {step === 'create' && pin.length === 4 && (
-          <View style={styles.continueContainer}>
+        {step === "create" && pin.length === 4 && (
+          <View style={styles.actionContainer}>
             <Button
               title="Continue"
               onPress={proceedToConfirm}
               variant="primary"
               fullWidth
-              style={styles.continueButton}
+              style={styles.actionButton}
             />
           </View>
         )}
-      </View>
-
-      <View
-        style={[styles.buttonContainer, { paddingBottom: insets.bottom || 24 }]}
-      >
-        <AnimatedPressable
-          onPress={handleButtonPress}
-          disabled={!canProceed || isLoading}
-          onPressIn={() => (buttonScale.value = withSpring(0.95))}
-          onPressOut={() => (buttonScale.value = withSpring(1))}
-          style={buttonAnimatedStyle}
-        >
-          <Button
-            title="Create Master PIN"
-            onPress={handleButtonPress}
-            disabled={!canProceed}
-            loading={isLoading}
-            variant="primary"
-            fullWidth
-            size="large"
-          />
-        </AnimatedPressable>
       </View>
     </View>
   );
@@ -312,11 +481,11 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   errorContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: Colors.dark.error + '20',
+    backgroundColor: Colors.dark.error + "20",
     borderRadius: 16,
     marginTop: 20,
     gap: 8,
@@ -324,21 +493,98 @@ const styles = StyleSheet.create({
   errorText: {
     color: Colors.dark.error,
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: "500",
   },
-  continueContainer: {
-    width: '100%',
+  actionContainer: {
+    width: "100%",
     paddingHorizontal: 20,
+    marginTop: 32,
   },
-  continueButton: {
+  actionButton: {
     marginBottom: 20,
   },
-  buttonContainer: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingHorizontal: 20,
-    paddingTop: 16,
+  // Biometric Setup Styles
+  biometricContainer: {
+    alignItems: "center",
+    paddingHorizontal: 32,
+    width: "100%",
+  },
+  biometricIconContainer: {
+    marginBottom: 32,
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  biometricIconGradient: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 3,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+  },
+  biometricTitle: {
+    fontSize: 28,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    textAlign: "center",
+    marginBottom: 16,
+  },
+  biometricSubtitle: {
+    fontSize: 16,
+    color: Colors.dark.textSecondary,
+    textAlign: "center",
+    lineHeight: 24,
+    marginBottom: 40,
+    maxWidth: "90%",
+  },
+  biometricActions: {
+    width: "100%",
+    gap: 16,
+  },
+  biometricEnableButton: {
+    borderRadius: 20,
+    overflow: "visible",
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  biometricEnableGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 20,
+    paddingHorizontal: 32,
+    gap: 12,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+  },
+  biometricEnableText: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#0a0a0b",
+  },
+  biometricSkipButton: {
+    borderRadius: 16,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+  biometricSkipContent: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+  },
+  biometricSkipText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: Colors.dark.textSecondary,
   },
 });

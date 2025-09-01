@@ -45,7 +45,7 @@ export default function Input({
   const shouldShowPassword = isPasswordField && !isPasswordVisible;
 
   const togglePasswordVisibility = () => {
-    setIsPasswordVisible(prev => !prev);
+    setIsPasswordVisible((prev) => !prev);
   };
 
   return (

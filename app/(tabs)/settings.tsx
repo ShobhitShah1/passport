@@ -18,7 +18,7 @@ import * as LocalAuthentication from 'expo-local-authentication';
 
 import Colors from '@/constants/Colors';
 import { useAppContext } from '@/hooks/useAppContext';
-import { saveSettings, clearAllData, exportEncryptedData, changeMasterPassword } from '@/services/storage/secureStorage';
+import { saveSettings, clearAllData, exportEncryptedData, changeMasterPassword, importEncryptedData } from '@/services/storage/secureStorage';
 import { UserSettings } from '@/types';
 import { ReachPressable } from '@/components/ui/ReachPressable';
 
@@ -83,10 +83,23 @@ const FloatingHexagon = ({ style }: { style: object }) => {
 };
 
 export default function SettingsTabScreen() {
-  const { state, dispatch } = useAppContext();
+  const { state, dispatch, saveData, updateSettings } = useAppContext();
   const [isLoading, setIsLoading] = useState(false);
   const [biometricAvailable, setBiometricAvailable] = useState(false);
+  const [dataStats, setDataStats] = useState({ passwords: 0, notes: 0, lastBackup: null as Date | null });
   const insets = useSafeAreaInsets();
+
+  useEffect(() => {
+    updateDataStats();
+  }, [state.passwords, state.secureNotes]);
+
+  const updateDataStats = () => {
+    setDataStats({
+      passwords: state.passwords.length,
+      notes: state.secureNotes.length,
+      lastBackup: null // Will be implemented with backup tracking
+    });
+  };
 
   useEffect(() => {
     checkBiometricAvailability();
@@ -107,17 +120,7 @@ export default function SettingsTabScreen() {
   ) => {
     try {
       setIsLoading(true);
-      const newSettings = { ...state.settings, [key]: value };
-      
-      // Save to storage
-      const success = await saveSettings(newSettings);
-      
-      if (success) {
-        // Update app state
-        dispatch({ type: 'UPDATE_SETTINGS', payload: { [key]: value } });
-      } else {
-        Alert.alert('Error', 'Failed to save settings. Please try again.');
-      }
+      await updateSettings({ [key]: value } as Partial<UserSettings>);
     } catch (error) {
       console.error('Error updating setting:', error);
       Alert.alert('Error', 'Failed to save settings. Please try again.');
@@ -186,19 +189,213 @@ export default function SettingsTabScreen() {
   const handleExportData = async () => {
     try {
       setIsLoading(true);
+      
+      // Check if user is authenticated
+      if (!state.isAuthenticated || !state.masterPassword) {
+        Alert.alert(
+          'Authentication Required', 
+          'You need to be logged in to export your data. Please restart the app and log in again.',
+          [
+            { text: 'OK', onPress: () => dispatch({ type: 'LOCK_APP' }) }
+          ]
+        );
+        return;
+      }
+      
+      // First save current data to ensure everything is persisted
+      try {
+        await saveData();
+      } catch (saveError) {
+        console.log('Save warning:', saveError);
+        // Continue with export even if save fails - data might already be saved
+      }
+      
       const exportData = await exportEncryptedData();
       
       if (exportData) {
+        // Create a more structured export
+        const exportFileName = `passport-backup-${new Date().toISOString().split('T')[0]}.json`;
+        const exportPayload = {
+          app: 'Passport Security Vault',
+          version: '1.0.0',
+          exportDate: new Date().toISOString(),
+          dataStats: {
+            passwords: state.passwords.length,
+            notes: state.secureNotes.length,
+            settings: Object.keys(state.settings).length
+          },
+          encryptedData: exportData
+        };
+        
         await Share.share({
-          message: exportData,
-          title: 'Passport Backup Data',
+          message: JSON.stringify(exportPayload, null, 2),
+          title: 'Passport Security Vault Backup',
         });
+        
+        Alert.alert(
+          '✅ Export Successful', 
+          `Exported ${state.passwords.length} passwords and ${state.secureNotes.length} notes.\n\nBackup file: ${exportFileName}`
+        );
       } else {
-        Alert.alert('Error', 'Failed to export data.');
+        Alert.alert('Export Error', 'Failed to export data. No data found or encryption error.');
       }
     } catch (error) {
       console.error('Export error:', error);
-      Alert.alert('Error', 'Failed to export data.');
+      const errorMessage = error.message.includes('Not authenticated') 
+        ? 'Authentication expired. Please restart the app and log in again.'
+        : 'Failed to export data. Please try again.';
+      Alert.alert('Export Error', errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleImportData = async () => {
+    Alert.alert(
+      'Import Backup Data',
+      'This will import encrypted data from a backup file. Your current data will be merged with the imported data.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Select Backup File',
+          onPress: selectImportFile,
+        },
+      ]
+    );
+  };
+
+  const selectImportFile = async () => {
+    // For now, use a simple text input approach
+    Alert.prompt(
+      'Import Backup Data',
+      'Paste your exported backup JSON data:',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Import',
+          onPress: (backupData) => {
+            if (backupData) {
+              parseImportData(backupData);
+            }
+          },
+        },
+      ],
+      'plain-text'
+    );
+  };
+
+  const parseImportData = (backupData: string) => {
+    try {
+      const importPayload = JSON.parse(backupData);
+      
+      // Check if it's a valid Passport backup
+      if (importPayload.app === 'Passport Security Vault' && importPayload.encryptedData) {
+        promptMasterPasswordForImport(importPayload.encryptedData, importPayload.dataStats);
+      } else if (typeof importPayload === 'string' || importPayload.passwords) {
+        // Legacy format or direct encrypted data
+        promptMasterPasswordForImport(backupData, null);
+      } else {
+        Alert.alert('Invalid Data', 'Pasted data is not a valid Passport backup.');
+      }
+    } catch (parseError) {
+      Alert.alert('Invalid Data', 'Unable to parse the backup data. Please paste valid JSON backup data.');
+    }
+  };
+
+  const promptMasterPasswordForImport = (encryptedData: any, stats: any) => {
+    Alert.prompt(
+      'Import Data',
+      stats 
+        ? `Backup contains ${stats.passwords} passwords and ${stats.notes} notes.\n\nEnter the master password used to create this backup:`
+        : 'Enter the master password used to create this backup:',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Import',
+          onPress: (masterPassword) => {
+            if (masterPassword) {
+              performImport(encryptedData, masterPassword, stats);
+            }
+          },
+        },
+      ],
+      'secure-text'
+    );
+  };
+
+  const performImport = async (encryptedData: any, masterPassword: string, stats: any) => {
+    try {
+      setIsLoading(true);
+      
+      const success = await importEncryptedData(
+        typeof encryptedData === 'string' ? encryptedData : JSON.stringify(encryptedData),
+        masterPassword
+      );
+      
+      if (success) {
+        // Reload data after import
+        await state.masterPassword && await dispatch({ type: 'SET_LOADING', payload: true });
+        
+        Alert.alert(
+          '✅ Import Successful',
+          stats 
+            ? `Successfully imported ${stats.passwords} passwords and ${stats.notes} notes.\n\nPlease restart the app to see all imported data.`
+            : 'Data imported successfully. Please restart the app to see all imported data.',
+          [
+            {
+              text: 'Restart App',
+              onPress: () => dispatch({ type: 'LOCK_APP' })
+            }
+          ]
+        );
+      } else {
+        Alert.alert('Import Failed', 'Failed to import data. Please check the master password and try again.');
+      }
+    } catch (error) {
+      console.error('Import error:', error);
+      Alert.alert('Import Error', 'Failed to import data. The backup file may be corrupted or the password is incorrect.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleBackupData = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Check if user is authenticated
+      if (!state.isAuthenticated || !state.masterPassword) {
+        Alert.alert(
+          'Authentication Required', 
+          'You need to be logged in to backup your data. Please restart the app and log in again.',
+          [
+            { text: 'OK', onPress: () => dispatch({ type: 'LOCK_APP' }) }
+          ]
+        );
+        return;
+      }
+      
+      // Force save all current data
+      try {
+        await saveData();
+        
+        Alert.alert(
+          '✅ Data Backed Up',
+          `Successfully backed up:\n• ${state.passwords.length} passwords\n• ${state.secureNotes.length} secure notes\n• All settings\n\nData is automatically encrypted and stored securely on your device.`,
+          [{ text: 'OK' }]
+        );
+        
+        setDataStats(prev => ({ ...prev, lastBackup: new Date() }));
+      } catch (saveError) {
+        console.error('Backup save error:', saveError);
+        const errorMessage = saveError.message.includes('Not authenticated')
+          ? 'Authentication expired. Please restart the app and log in again.'
+          : 'Failed to backup data. Please try again.';
+        Alert.alert('Backup Error', errorMessage);
+      }
+    } catch (error) {
+      console.error('Backup error:', error);
+      Alert.alert('Backup Error', 'Failed to backup data. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -520,6 +717,39 @@ export default function SettingsTabScreen() {
             <Ionicons name="cloud" size={24} color="#8b5cf6" />
             <Text style={styles.sectionTitle}>Data Management</Text>
           </View>
+          
+          {/* Data Statistics */}
+          <View style={styles.dataStatsContainer}>
+            <LinearGradient
+              colors={['rgba(139, 92, 246, 0.1)', 'rgba(139, 92, 246, 0.05)']}
+              style={styles.dataStatsGradient}
+            >
+              <View style={styles.dataStatsContent}>
+                <View style={styles.dataStatsRow}>
+                  <View style={styles.dataStat}>
+                    <Text style={styles.dataStatNumber}>{dataStats.passwords}</Text>
+                    <Text style={styles.dataStatLabel}>Passwords</Text>
+                  </View>
+                  <View style={styles.dataStatDivider} />
+                  <View style={styles.dataStat}>
+                    <Text style={styles.dataStatNumber}>{dataStats.notes}</Text>
+                    <Text style={styles.dataStatLabel}>Secure Notes</Text>
+                  </View>
+                  <View style={styles.dataStatDivider} />
+                  <View style={styles.dataStat}>
+                    <Text style={styles.dataStatNumber}>🔒</Text>
+                    <Text style={styles.dataStatLabel}>Encrypted</Text>
+                  </View>
+                </View>
+                {dataStats.lastBackup && (
+                  <Text style={styles.lastBackupText}>
+                    Last backup: {dataStats.lastBackup.toLocaleDateString()}
+                  </Text>
+                )}
+              </View>
+            </LinearGradient>
+          </View>
+          
           <View style={styles.settingsGroup}>
             <SettingRow
               title="Security Notifications"
@@ -554,10 +784,26 @@ export default function SettingsTabScreen() {
           </View>
           <View style={styles.actionsGroup}>
             <ActionButton
-              title="Export Data"
-              subtitle="Share encrypted backup data"
+              title="Backup Data"
+              subtitle="Save current data to secure storage"
+              icon="shield-checkmark"
+              color={Colors.dark.neonGreen}
+              onPress={handleBackupData}
+              disabled={isLoading}
+            />
+            <ActionButton
+              title="Export Backup"
+              subtitle="Create shareable encrypted backup file"
               icon="download"
               onPress={handleExportData}
+              disabled={isLoading}
+            />
+            <ActionButton
+              title="Import Backup"
+              subtitle="Restore data from backup file"
+              icon="cloud-upload"
+              color="#8b5cf6"
+              onPress={handleImportData}
               disabled={isLoading}
             />
             <ActionButton
@@ -583,6 +829,19 @@ export default function SettingsTabScreen() {
           <Text style={styles.footerText}>
             {isLoading ? 'Saving changes...' : 'Built for space explorers 🚀'}
           </Text>
+          
+          {/* Debug Info - Remove in production */}
+          <ReachPressable 
+            style={styles.debugButton}
+            onPress={() => {
+              Alert.alert(
+                'Debug Info',
+                `Authentication Status:\n• Is Authenticated: ${state.isAuthenticated}\n• Has Master Password: ${!!state.masterPassword}\n• Is Locked: ${state.isLocked}\n• Passwords Count: ${state.passwords.length}\n• Notes Count: ${state.secureNotes.length}`
+              );
+            }}
+          >
+            <Text style={styles.debugText}>Debug Info</Text>
+          </ReachPressable>
         </View>
       </ScrollView>
     </View>
@@ -737,5 +996,66 @@ const styles = StyleSheet.create({
   },
   disabledText: {
     opacity: 0.6,
+  },
+  // Data Management Styles
+  dataStatsContainer: {
+    marginBottom: 16,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  dataStatsGradient: {
+    borderWidth: 1,
+    borderColor: 'rgba(139, 92, 246, 0.2)',
+    borderRadius: 16,
+  },
+  dataStatsContent: {
+    padding: 20,
+  },
+  dataStatsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+  },
+  dataStat: {
+    alignItems: 'center',
+  },
+  dataStatNumber: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: Colors.dark.text,
+    marginBottom: 4,
+  },
+  dataStatLabel: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+    fontWeight: '500',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  dataStatDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: 'rgba(139, 92, 246, 0.3)',
+  },
+  lastBackupText: {
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
+    textAlign: 'center',
+    marginTop: 16,
+    fontStyle: 'italic',
+  },
+  // Debug styles
+  debugButton: {
+    marginTop: 16,
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  debugText: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+    textAlign: 'center',
   },
 });

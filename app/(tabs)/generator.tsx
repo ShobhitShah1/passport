@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Dimensions,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -19,6 +20,7 @@ import Animated, {
   interpolate,
   runOnJS,
   withSpring,
+  cancelAnimation,
 } from "react-native-reanimated";
 import Svg, {
   Defs,
@@ -31,25 +33,56 @@ import Svg, {
 
 import { ReachPressable } from "@/components/ui/ReachPressable";
 import Colors from "@/constants/Colors";
+import { useNavigationOptimization } from "@/hooks/useNavigationOptimization";
 
 const { height: screenHeight, width: screenWidth } = Dimensions.get("window");
 
-// Holographic Hexagonal Grid Background
-const HexGrid = () => {
-  const hexSize = 40;
+// Optimized Hexagonal Grid Background
+const HexGrid = React.memo(() => {
+  const hexSize = 60; // Increased size to reduce count
   const cols = Math.ceil(screenWidth / (hexSize * 0.75));
   const rows = Math.ceil(screenHeight / (hexSize * 0.866));
 
-  const hexagonPoints = (cx: number, cy: number, size: number) => {
-    const points = [];
-    for (let i = 0; i < 6; i++) {
-      const angle = (i * Math.PI) / 3;
-      const x = cx + size * Math.cos(angle);
-      const y = cy + size * Math.sin(angle);
-      points.push(`${x},${y}`);
+  // Limit total hexagons for performance
+  const maxHexagons = 40;
+
+  const hexagonPoints = React.useCallback(
+    (cx: number, cy: number, size: number) => {
+      const points = [];
+      for (let i = 0; i < 6; i++) {
+        const angle = (i * Math.PI) / 3;
+        const x = cx + size * Math.cos(angle);
+        const y = cy + size * Math.sin(angle);
+        points.push(`${x},${y}`);
+      }
+      return points.join(" ");
+    },
+    []
+  );
+
+  const hexagons = React.useMemo(() => {
+    const result = [];
+    let count = 0;
+
+    for (let row = 0; row < rows && count < maxHexagons; row++) {
+      for (let col = 0; col < cols && count < maxHexagons; col++) {
+        // Skip more hexagons for better performance
+        if (Math.random() > 0.25) continue;
+
+        const x = col * hexSize * 0.75;
+        const y = row * hexSize * 0.866 + (col % 2) * (hexSize * 0.433);
+        const opacity = Math.random() * 0.5 + 0.1;
+
+        result.push({
+          key: `hex-${row}-${col}`,
+          points: hexagonPoints(x, y, hexSize * 0.4),
+          opacity,
+        });
+        count++;
+      }
     }
-    return points.join(" ");
-  };
+    return result;
+  }, [hexagonPoints]);
 
   return (
     <Svg
@@ -86,38 +119,31 @@ const HexGrid = () => {
         </SvgLinearGradient>
       </Defs>
 
-      {Array.from({ length: rows }).map((_, row) =>
-        Array.from({ length: cols }).map((_, col) => {
-          const x = col * hexSize * 0.75;
-          const y = row * hexSize * 0.866 + (col % 2) * (hexSize * 0.433);
-          const opacity = Math.random() * 0.5 + 0.1;
-
-          return (
-            <G key={`hex-${row}-${col}`} opacity={opacity}>
-              <Polygon
-                points={hexagonPoints(x, y, hexSize * 0.4)}
-                fill="url(#hexGradient)"
-                stroke="url(#hexBorder)"
-                strokeWidth="0.5"
-              />
-            </G>
-          );
-        })
-      )}
+      {hexagons.map((hex) => (
+        <G key={hex.key} opacity={hex.opacity}>
+          <Polygon
+            points={hex.points}
+            fill="url(#hexGradient)"
+            stroke="url(#hexBorder)"
+            strokeWidth="0.5"
+          />
+        </G>
+      ))}
     </Svg>
   );
-};
+});
 
-// Animated Floating Particles with Reanimated
-const FloatingParticles = () => {
+// Optimized Floating Particles with Reanimated
+const FloatingParticles = React.memo(() => {
   const particles = useMemo(
     () =>
-      Array.from({ length: 12 }, (_, i) => ({
+      Array.from({ length: 6 }, (_, i) => ({
+        // Reduced from 12 to 6
         id: i,
         x: Math.random() * screenWidth,
         y: Math.random() * screenHeight,
         size: Math.random() * 4 + 2,
-        speed: Math.random() * 2000 + 3000,
+        speed: Math.random() * 3000 + 5000, // Slower for better performance
       })),
     []
   );
@@ -129,15 +155,15 @@ const FloatingParticles = () => {
       ))}
     </View>
   );
-};
+});
 
-const AnimatedParticle = ({ particle }: { particle: any }) => {
+const AnimatedParticle = React.memo(({ particle }: { particle: any }) => {
   const translateX = useSharedValue(particle.x);
   const translateY = useSharedValue(particle.y);
   const opacity = useSharedValue(Math.random() * 0.8 + 0.2);
 
   useEffect(() => {
-    // Start continuous animations
+    // Start continuous animations with better performance
     translateX.value = withRepeat(
       withTiming(Math.random() * screenWidth, {
         duration: particle.speed,
@@ -148,7 +174,7 @@ const AnimatedParticle = ({ particle }: { particle: any }) => {
 
     translateY.value = withRepeat(
       withTiming(Math.random() * screenHeight, {
-        duration: particle.speed + 1000,
+        duration: particle.speed + 2000, // Slower
       }),
       -1,
       true
@@ -156,21 +182,30 @@ const AnimatedParticle = ({ particle }: { particle: any }) => {
 
     opacity.value = withRepeat(
       withSequence(
-        withTiming(0.8, { duration: 2000 }),
-        withTiming(0.2, { duration: 2000 })
+        withTiming(0.8, { duration: 3000 }), // Slower opacity changes
+        withTiming(0.2, { duration: 3000 })
       ),
       -1,
       true
     );
+
+    return () => {
+      cancelAnimation(translateX);
+      cancelAnimation(translateY);
+      cancelAnimation(opacity);
+    };
   }, []);
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: translateX.value },
-      { translateY: translateY.value },
-    ],
-    opacity: opacity.value,
-  }));
+  const animatedStyle = useAnimatedStyle(
+    () => ({
+      transform: [
+        { translateX: translateX.value },
+        { translateY: translateY.value },
+      ],
+      opacity: opacity.value,
+    }),
+    []
+  );
 
   return (
     <Animated.View
@@ -184,7 +219,7 @@ const AnimatedParticle = ({ particle }: { particle: any }) => {
       ]}
     />
   );
-};
+});
 
 export default function GeneratorScreen() {
   const [password, setPassword] = useState("");
@@ -196,8 +231,10 @@ export default function GeneratorScreen() {
     symbols: true,
   });
   const insets = useSafeAreaInsets();
+  const { shouldRenderAnimations } = useNavigationOptimization();
 
-  const generatePassword = () => {
+  // Optimized password generation with proper threading
+  const generatePassword = React.useCallback(() => {
     const chars = {
       uppercase: "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
       lowercase: "abcdefghijklmnopqrstuvwxyz",
@@ -216,12 +253,17 @@ export default function GeneratorScreen() {
       return;
     }
 
-    let newPassword = "";
-    for (let i = 0; i < length; i++) {
-      newPassword += charset.charAt(Math.floor(Math.random() * charset.length));
-    }
-    setPassword(newPassword);
-  };
+    // Use setTimeout to avoid blocking the UI thread for complex generation
+    setTimeout(() => {
+      let newPassword = "";
+      for (let i = 0; i < length; i++) {
+        newPassword += charset.charAt(
+          Math.floor(Math.random() * charset.length)
+        );
+      }
+      setPassword(newPassword);
+    }, 0);
+  }, [length, options]);
 
   const copyToClipboard = () => {
     if (password) {
@@ -269,6 +311,10 @@ export default function GeneratorScreen() {
         -1,
         true
       );
+
+      return () => {
+        cancelAnimation(glowOpacity);
+      };
     }, []);
 
     const animatedStyle = useAnimatedStyle(() => ({
@@ -359,6 +405,7 @@ export default function GeneratorScreen() {
     const glowOpacity = useSharedValue(0);
 
     const handlePress = () => {
+      "worklet";
       scale.value = withSequence(
         withTiming(0.95, { duration: 100 }),
         withSpring(1, { damping: 15, stiffness: 200 })
@@ -379,22 +426,7 @@ export default function GeneratorScreen() {
     }));
 
     return (
-      <ReachPressable
-        style={[
-          styles.optionToggle,
-          {
-            backgroundColor: enabled
-              ? "rgba(0, 212, 255, 0.1)"
-              : "rgba(26, 26, 27, 0.8)",
-            borderColor: enabled
-              ? Colors.dark.primary
-              : Colors.dark.borderLight,
-          },
-        ]}
-        onPress={handlePress}
-        reachScale={1}
-        pressScale={1}
-      >
+      <Pressable onPress={handlePress}>
         <Animated.View
           style={[
             { flexDirection: "row", alignItems: "center", flex: 1, gap: 16 },
@@ -428,7 +460,7 @@ export default function GeneratorScreen() {
             ]}
           />
         </Animated.View>
-      </ReachPressable>
+      </Pressable>
     );
   };
 
@@ -444,6 +476,7 @@ export default function GeneratorScreen() {
     const glowOpacity = useSharedValue(0);
 
     const handlePress = () => {
+      "worklet";
       scale.value = withSequence(
         withTiming(0.9, { duration: 100 }),
         withSpring(1, { damping: 15, stiffness: 200 })
@@ -468,16 +501,16 @@ export default function GeneratorScreen() {
           styles.lengthButton,
           {
             backgroundColor: isSelected
-              ? Colors.dark.primary
-              : "rgba(26, 26, 27, 0.8)",
-            borderColor: isSelected
               ? Colors.dark.neonGreen
-              : Colors.dark.borderLight,
+              : "rgba(255, 255, 255, 0.1)",
+            borderColor: isSelected
+              ? Colors.dark.primary
+              : "rgba(255, 255, 255, 0.3)",
           },
         ]}
         onPress={handlePress}
-        reachScale={1}
-        pressScale={1}
+        reachScale={1.05}
+        pressScale={0.95}
       >
         <Animated.View style={[styles.lengthButtonContent, animatedStyle]}>
           <Text
@@ -501,6 +534,7 @@ export default function GeneratorScreen() {
   const generateButtonGlow = useSharedValue(0.8);
 
   const handleGeneratePress = () => {
+    "worklet";
     generateButtonScale.value = withSequence(
       withTiming(0.95, { duration: 100 }),
       withSpring(1, { damping: 15, stiffness: 200 })
@@ -521,8 +555,8 @@ export default function GeneratorScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <HexGrid />
-      <FloatingParticles />
+      {shouldRenderAnimations && <HexGrid />}
+      {shouldRenderAnimations && <FloatingParticles />}
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
@@ -728,7 +762,7 @@ export default function GeneratorScreen() {
             >
               <Ionicons name="flash" size={28} color={Colors.dark.background} />
               <Text style={styles.generateButtonText}>
-                ⚡ GENERATE QUANTUM KEY
+                GENERATE QUANTUM KEY
               </Text>
             </LinearGradient>
           </Animated.View>
@@ -841,13 +875,18 @@ const styles = StyleSheet.create({
     fontFamily: "monospace",
     lineHeight: 24,
     marginBottom: 16,
-    padding: 16,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    borderRadius: 12,
-    borderWidth: 1,
+    padding: 20,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    borderRadius: 16,
+    borderWidth: 2,
     borderColor: Colors.dark.primary,
-    minHeight: 80,
+    minHeight: 90,
     textAlignVertical: "center",
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   passwordStrength: {
     marginBottom: 16,
@@ -884,26 +923,31 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     flex: 1,
-    borderRadius: 12,
-    overflow: "hidden",
+    borderRadius: 16,
+    overflow: "visible",
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
   },
   actionButtonGradient: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    gap: 8,
-    borderWidth: 1,
-    borderColor: Colors.dark.primary,
-    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    gap: 10,
+    borderWidth: 2,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+    borderRadius: 16,
   },
   actionButtonText: {
     fontSize: 12,
     fontWeight: "700",
     letterSpacing: 0.5,
   },
-  // Length Options
+  // Length Options - Better Buttons
   lengthOptions: {
     flexDirection: "row",
     gap: 12,
@@ -911,18 +955,20 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   lengthButton: {
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: 2,
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    minWidth: 56,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    minWidth: 60,
     alignItems: "center",
     justifyContent: "center",
-    minHeight: 52,
-    overflow: "hidden",
-    shadowColor: Colors.dark.primary,
-    shadowOffset: { width: 0, height: 0 },
-    shadowRadius: 8,
+    minHeight: 56,
+    overflow: "visible",
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 4,
   },
   lengthButtonContent: {
     alignItems: "center",
@@ -932,7 +978,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
   },
-  // Options Grid
+  // Options Grid - Enhanced Visibility
   optionsGrid: {
     flexDirection: "column",
     gap: 16,
@@ -944,10 +990,12 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 2,
     gap: 16,
-    minHeight: 68,
-    shadowOffset: { width: 0, height: 2 },
+    // minHeight: 72,
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
     shadowRadius: 8,
-    elevation: 4,
+    elevation: 6,
   },
   optionText: {
     fontSize: 15,
@@ -965,32 +1013,38 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  // Generate Button
+  // Generate Button - Premium Look
   generateButton: {
-    borderRadius: 16,
-    overflow: "hidden",
-    marginTop: 8,
-    shadowColor: Colors.dark.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.8,
-    shadowRadius: 12,
-    elevation: 8,
+    borderRadius: 20,
+    overflow: "visible",
+    marginTop: 16,
+    marginBottom: 20,
+    shadowColor: Colors.dark.neonGreen,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 10,
   },
   generateGradient: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 20,
-    paddingHorizontal: 24,
-    gap: 12,
+    paddingVertical: 22,
+    paddingHorizontal: 32,
+    gap: 16,
+    borderWidth: 3,
+    borderColor: "rgba(255, 255, 255, 0.3)",
+    borderRadius: 20,
   },
   generateButtonText: {
     color: Colors.dark.background,
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "800",
-    letterSpacing: 1.2,
+    letterSpacing: 1.5,
     textAlign: "center",
-    flex: 1,
+    textShadowColor: "rgba(0, 0, 0, 0.3)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
 });
 

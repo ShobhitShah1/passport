@@ -37,7 +37,7 @@ const SpaceHeader = React.memo(() => {
     <View style={styles.spaceHeader}>
       <View style={styles.headerContent}>
         <Text style={styles.greetingText}>GOOD {getGreeting()}</Text>
-        <Text style={styles.vaultTitle}>Unknown user</Text>
+        <Text style={styles.vaultTitle}>Hello, Stranger 👋</Text>
       </View>
 
       <ReachPressable
@@ -526,10 +526,9 @@ const PasswordPreviewSection = ({
           pressScale={1}
         >
           <LinearGradient
-            colors={["rgba(255, 255, 255, 0.04)", "rgba(255, 255, 255, 0.01)"]}
+            colors={["rgba(255, 255, 255, 0.09)", "rgba(255, 255, 255, 0.01)"]}
             style={styles.passwordPreviewGradient}
           >
-            {/* Header with app info */}
             <View style={styles.passwordPreviewHeader}>
               <View style={styles.passwordAppInfo}>
                 <AppIcon appName={item.appName} size="medium" />
@@ -564,7 +563,6 @@ const PasswordPreviewSection = ({
               </Text>
             </View>
 
-            {/* Credentials Display */}
             <View style={styles.passwordCredentials}>
               <View style={styles.passwordField}>
                 <Text style={styles.passwordFieldLabel}>Username</Text>
@@ -623,7 +621,6 @@ const PasswordPreviewSection = ({
               </View>
             </View>
 
-            {/* Quick Actions */}
             <View style={styles.passwordQuickActions}>
               <ReachPressable style={styles.passwordQuickAction}>
                 <Ionicons
@@ -654,9 +651,6 @@ const PasswordPreviewSection = ({
     <View style={styles.passwordPreviewSection}>
       <View style={styles.passwordPreviewHeader}>
         <Text style={styles.passwordPreviewTitle}>🔐 Saved Passwords</Text>
-        <Text style={styles.passwordPreviewSubtitle}>
-          Tap to view your credentials
-        </Text>
       </View>
 
       <View style={styles.passwordPreviewGrid}>
@@ -1215,7 +1209,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: Colors.dark.text,
-    marginBottom: 4,
+    marginBottom: 2,
   },
   statusText: {
     fontSize: 14,
@@ -1523,11 +1517,6 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     letterSpacing: 0.3,
   },
-  passwordPreviewSubtitle: {
-    fontSize: 14,
-    color: Colors.dark.textMuted,
-    fontWeight: "500",
-  },
   passwordPreviewGrid: {
     gap: 16,
   },
@@ -1639,8 +1628,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    width: "50%",
-    paddingVertical: 8,
+    width: "48%",
+    alignSelf: "center",
+    paddingVertical: 13,
     paddingHorizontal: 12,
     borderRadius: 10,
     backgroundColor: "rgba(255, 255, 255, 0.05)",

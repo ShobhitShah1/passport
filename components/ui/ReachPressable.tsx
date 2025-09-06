@@ -1,5 +1,5 @@
-import React, { useRef } from 'react';
-import { Pressable, Animated, PressableProps } from 'react-native';
+import React, { useRef } from "react";
+import { Animated, Pressable, PressableProps } from "react-native";
 
 interface ReachPressableProps extends PressableProps {
   children: React.ReactNode;
@@ -17,6 +17,7 @@ export function ReachPressable({
   onPressOut,
   ...props
 }: ReachPressableProps) {
+  const { style } = props;
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const handlePressIn = (event: any) => {
@@ -54,13 +55,7 @@ export function ReachPressable({
       onPressOut={handlePressOut}
       android_ripple={null}
     >
-      <Animated.View
-        style={{
-          transform: [{ scale: scaleAnim }],
-        }}
-      >
-        {children}
-      </Animated.View>
+      {children}
     </Pressable>
   );
 }

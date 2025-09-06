@@ -1209,7 +1209,6 @@ const styles = StyleSheet.create({
   iconContainer: {
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 16,
     position: "relative",
   },
   headerIcon: {
@@ -1219,7 +1218,6 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: "bold",
     color: Colors.dark.text,
-    marginBottom: 8,
     textAlign: "center",
   },
   subtitle: {

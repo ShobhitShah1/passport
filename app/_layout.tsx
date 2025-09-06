@@ -55,7 +55,7 @@ export default function RootLayout() {
       try {
         initializeWidgets();
       } catch (error) {
-        console.warn('Widget initialization failed:', error);
+        console.warn("Widget initialization failed:", error);
       }
     }
   }, [loaded]);

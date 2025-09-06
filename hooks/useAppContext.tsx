@@ -1,21 +1,24 @@
+import { router } from "expo-router";
 import React, {
   createContext,
-  useContext,
-  useReducer,
-  useEffect,
   ReactNode,
+  useContext,
+  useEffect,
+  useReducer,
+  useState,
 } from "react";
-import { AppState, AppAction, UserSettings } from "../types";
+import { Alert } from "react-native";
 import {
+  isAppSetup,
   loadPasswords,
   loadSecureNotes,
   loadSettings,
-  isAppSetup,
   savePasswords,
   saveSecureNotes,
   saveSettings,
 } from "../services/storage/secureStorage";
 import WidgetUpdateService from "../services/widget/WidgetUpdateService";
+import { AppAction, AppState, UserSettings } from "../types";
 import { syncAuthentication } from "../utils/authSync";
 
 const initialState: AppState = {
@@ -189,6 +192,7 @@ interface AppContextType {
   updateSecureNote: (note: any) => Promise<void>;
   deleteSecureNote: (id: string) => Promise<void>;
   updateSettings: (settings: Partial<UserSettings>) => Promise<void>;
+  lockCountdown: number | null;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -199,18 +203,40 @@ interface AppProviderProps {
 
 export function AppProvider({ children }: AppProviderProps) {
   const [state, dispatch] = useReducer(appReducer, initialState);
+  const [lockCountdown, setLockCountdown] = useState<number | null>(null);
 
-  // Auto-lock timer
   useEffect(() => {
     if (!state.isAuthenticated || state.settings.autoLockTimeout === 0) {
+      setLockCountdown(null);
       return;
     }
 
-    const timeoutId = setTimeout(() => {
-      dispatch({ type: "LOCK_APP" });
-    }, state.settings.autoLockTimeout * 60 * 1000);
+    let remainingTime = state.settings.autoLockTimeout * 60;
+    setLockCountdown(remainingTime);
 
-    return () => clearTimeout(timeoutId);
+    const intervalId = setInterval(() => {
+      remainingTime -= 1;
+      setLockCountdown(remainingTime);
+
+      if (remainingTime <= 0) {
+        clearInterval(intervalId);
+        Alert.alert(
+          "Session Expired",
+          "Your session has expired. Please log in again.",
+          [
+            {
+              text: "OK",
+              onPress: () => {
+                dispatch({ type: "LOCK_APP" });
+                router.replace("/auth");
+              },
+            },
+          ]
+        );
+      }
+    }, 1000);
+
+    return () => clearInterval(intervalId);
   }, [state.isAuthenticated, state.settings.autoLockTimeout]);
 
   const authenticate = async (masterPassword: string): Promise<boolean> => {
@@ -361,6 +387,7 @@ export function AppProvider({ children }: AppProviderProps) {
     updateSecureNote,
     deleteSecureNote,
     updateSettings: updateAppSettings,
+    lockCountdown,
   };
 
   return (

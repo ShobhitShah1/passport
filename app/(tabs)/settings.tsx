@@ -12,14 +12,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Svg, {
-  Circle,
-  Defs,
-  Polygon,
-  Stop,
-  LinearGradient as SvgLinearGradient,
-} from "react-native-svg";
-
+import Svg, { Polygon } from "react-native-svg";
 import { ReachPressable } from "@/components/ui/ReachPressable";
 import Colors from "@/constants/Colors";
 import { useAppContext } from "@/hooks/useAppContext";
@@ -101,7 +94,8 @@ const FloatingHexagon = ({ style }: { style: object }) => {
 };
 
 export default function SettingsTabScreen() {
-  const { state, dispatch, saveData, updateSettings } = useAppContext();
+  const { state, dispatch, saveData, updateSettings, lockCountdown } =
+    useAppContext();
   const {
     passwords,
     secureNotes,
@@ -224,21 +218,28 @@ export default function SettingsTabScreen() {
       [
         {
           text: "1 minute",
-          onPress: () => updateSetting("autoLockTimeout", 1),
+          onPress: () => {
+            updateSetting("autoLockTimeout", 1);
+          },
         },
         {
           text: "5 minutes",
-          onPress: () => updateSetting("autoLockTimeout", 5),
+          onPress: () => {
+            updateSetting("autoLockTimeout", 5);
+          },
         },
         {
           text: "15 minutes",
-          onPress: () => updateSetting("autoLockTimeout", 15),
+          onPress: () => {
+            updateSetting("autoLockTimeout", 15);
+          },
         },
         {
           text: "30 minutes",
-          onPress: () => updateSetting("autoLockTimeout", 30),
+          onPress: () => {
+            updateSetting("autoLockTimeout", 30);
+          },
         },
-        { text: "Never", onPress: () => updateSetting("autoLockTimeout", 0) },
         { text: "Cancel", style: "cancel" },
       ]
     );
@@ -821,6 +822,21 @@ export default function SettingsTabScreen() {
     );
   };
 
+  const formatTime = (totalSeconds: number) => {
+    if (totalSeconds < 0) totalSeconds = 0;
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+
+    const parts = [];
+    if (minutes > 0) {
+      parts.push(`${minutes} minute${minutes > 1 ? "s" : ""}`);
+    }
+    if (seconds > 0 || minutes === 0) {
+      parts.push(`${seconds} second${seconds !== 1 ? "s" : ""}`);
+    }
+    return parts.join(" ");
+  };
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <StarField />
@@ -836,40 +852,6 @@ export default function SettingsTabScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.header}>
-          <View style={styles.iconContainer}>
-            <Svg width={100} height={100} viewBox="0 0 100 100">
-              <Defs>
-                <SvgLinearGradient
-                  id="settingsGradient"
-                  x1="0"
-                  y1="0"
-                  x2="1"
-                  y2="1"
-                >
-                  <Stop offset="0%" stopColor={Colors.dark.primary} />
-                  <Stop offset="100%" stopColor={Colors.dark.neonGreen} />
-                </SvgLinearGradient>
-              </Defs>
-              <Circle
-                cx="50"
-                cy="50"
-                r="35"
-                fill="url(#settingsGradient)"
-                opacity={0.3}
-              />
-            </Svg>
-            <Ionicons
-              name="settings"
-              size={50}
-              color={Colors.dark.primary}
-              style={styles.headerIcon}
-            />
-          </View>
-          <Text style={styles.title}>Mission Settings</Text>
-          <Text style={styles.subtitle}>Configure your space vault</Text>
-        </View>
-
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Ionicons
@@ -895,7 +877,9 @@ export default function SettingsTabScreen() {
             <SettingRow
               title="Auto-Lock Timeout"
               subtitle={
-                settings.autoLockTimeout === 0
+                lockCountdown !== null
+                  ? `Locks in ${formatTime(lockCountdown)}`
+                  : settings.autoLockTimeout === 0
                   ? "Never"
                   : `${settings.autoLockTimeout} minute${
                       settings.autoLockTimeout > 1 ? "s" : ""
@@ -1178,7 +1162,7 @@ export default function SettingsTabScreen() {
                 `Authentication Status:\n• Is Authenticated: ${
                   state.isAuthenticated
                 }\n• Has Master Password: ${!!state.masterPassword}\n• Is Locked: ${
-                  state.isLocked
+                  state.passwords.length
                 }\n• Passwords Count: ${
                   state.passwords.length
                 }\n• Notes Count: ${state.secureNotes.length}`
@@ -1201,29 +1185,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 20,
     paddingTop: 20,
-  },
-  header: {
-    alignItems: "center",
-    marginBottom: 32,
-  },
-  iconContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    position: "relative",
-  },
-  headerIcon: {
-    position: "absolute",
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: Colors.dark.text,
-    textAlign: "center",
-  },
-  subtitle: {
-    fontSize: 16,
-    color: Colors.dark.textSecondary,
-    textAlign: "center",
   },
   section: {
     marginBottom: 32,

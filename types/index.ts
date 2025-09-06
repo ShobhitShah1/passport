@@ -13,7 +13,8 @@ export interface Password {
   id: string;
   appName: string;
   appId: string;
-  username: string;
+  username?: string;
+  email?: string;
   password: string;
   url?: string;
   notes?: string;

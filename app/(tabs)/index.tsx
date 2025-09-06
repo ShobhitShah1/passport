@@ -24,38 +24,65 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import AddPasswordModal from "../../components/add-password-modal";
 
-const SpaceHeader = React.memo(() => {
-  const currentHour = new Date().getHours();
-  const getGreeting = () => {
-    if (currentHour < 12) return "MORNING";
-    if (currentHour < 17) return "AFTERNOON";
-    return "EVENING";
-  };
+const SpaceHeader = React.memo(
+  ({
+    userName,
+    totalPasswords,
+    totalNotes,
+  }: {
+    userName?: string;
+    totalPasswords: number;
+    totalNotes: number;
+  }) => {
+    const currentHour = new Date().getHours();
+    const currentDate = new Date();
 
-  return (
-    <View style={styles.spaceHeader}>
-      <View style={styles.headerContent}>
-        <Text style={styles.greetingText}>GOOD {getGreeting()}</Text>
-        <Text style={styles.vaultTitle}>Hello, Stranger 👋</Text>
-      </View>
+    const getGreeting = () => {
+      if (currentHour < 12) return "MORNING";
+      if (currentHour < 17) return "AFTERNOON";
+      return "EVENING";
+    };
 
-      <ReachPressable
-        style={styles.spaceButton}
-        reachScale={1.05}
-        pressScale={0.95}
-      >
-        <View style={styles.spaceButtonInner}>
-          <Ionicons
-            name="person-circle"
-            size={28}
-            color={Colors.dark.neonGreen}
-          />
+    const getUserGreeting = () => {
+      if (userName) return `Welcome back, ${userName}`;
+      return "Welcome, Space Voyager";
+    };
+
+    const formatDate = () => {
+      return currentDate.toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "short",
+        day: "numeric",
+      });
+    };
+
+    return (
+      <View style={styles.spaceHeader}>
+        {/* Background Glow Effects */}
+        <View style={styles.headerGlow} />
+
+        {/* Main Header Content */}
+        <View style={styles.headerMainContainer}>
+          <View style={styles.headerLeft}>
+            {/* Greeting Section */}
+            <View style={styles.greetingContainer}>
+              <Text style={styles.greetingTime}>GOOD {getGreeting()}</Text>
+              <Text style={styles.greetingDate}>{formatDate()}</Text>
+            </View>
+
+            {/* Welcome Message */}
+            <Text style={styles.welcomeMessage}>{getUserGreeting()}</Text>
+            <Text style={styles.vaultSubtitle}>
+              🛡️ Your digital fortress is secure
+            </Text>
+          </View>
         </View>
-      </ReachPressable>
-    </View>
-  );
-});
+      </View>
+    );
+  }
+);
 
 const SpaceQuickActions = React.memo(
   ({
@@ -208,38 +235,79 @@ const SecurityStatus = ({
       return {
         icon: "shield-checkmark",
         color: Colors.dark.neonGreen,
-        text: "Secure",
+        text: "Fortress Secure",
+        description: "Your vault is well protected",
+        bgColor: "rgba(0, 255, 127, 0.1)",
       };
     if (score >= 60)
-      return { icon: "shield", color: Colors.dark.primary, text: "Good" };
+      return {
+        icon: "shield",
+        color: Colors.dark.primary,
+        text: "Moderately Safe",
+        description: "Room for improvement",
+        bgColor: "rgba(0, 212, 255, 0.1)",
+      };
     return {
       icon: "warning",
       color: Colors.dark.warning,
-      text: "Needs Attention",
+      text: "Security Risk",
+      description: "Immediate attention needed",
+      bgColor: "rgba(255, 171, 0, 0.1)",
     };
   };
 
-  const { icon, color, text } = getStatusData(score);
+  const { icon, color, text, description, bgColor } = getStatusData(score);
+  const progress = Math.min(score / 100, 1);
 
   return (
     <View style={styles.securityStatus}>
-      <View style={styles.statusRow}>
-        <View style={styles.statusIcon}>
-          <Ionicons
-            name={icon as keyof typeof Ionicons.glyphMap}
-            size={24}
-            color={color}
-          />
+      <LinearGradient
+        colors={[bgColor, "rgba(255, 255, 255, 0.02)"]}
+        style={styles.securityStatusGradient}
+      >
+        {/* Header */}
+        <View style={styles.statusHeader}>
+          <View style={styles.statusIconContainer}>
+            <LinearGradient
+              colors={[color + "20", color + "10"]}
+              style={styles.statusIconGradient}
+            >
+              <Ionicons
+                name={icon as keyof typeof Ionicons.glyphMap}
+                size={26}
+                color={color}
+              />
+            </LinearGradient>
+          </View>
+          <View style={styles.statusHeaderText}>
+            <Text style={styles.statusTitle}>🛡️ Vault Security</Text>
+            <Text style={[styles.statusText, { color }]}>{text}</Text>
+            <Text style={styles.statusDescription}>{description}</Text>
+          </View>
+          <View style={styles.statusScoreContainer}>
+            <Text style={styles.statusScore}>{score}</Text>
+            <Text style={styles.statusScoreLabel}>Score</Text>
+          </View>
         </View>
-        <View style={styles.statusInfo}>
-          <Text style={styles.statusTitle}>Security Status</Text>
-          <Text style={[styles.statusText, { color }]}>{text}</Text>
+
+        {/* Progress Bar */}
+        <View style={styles.progressContainer}>
+          <View style={styles.progressTrack}>
+            <View
+              style={[
+                styles.progressBar,
+                { width: `${progress * 100}%`, backgroundColor: color },
+              ]}
+            />
+          </View>
+          <View style={styles.progressStats}>
+            <Text style={styles.progressText}>{total} Total Items</Text>
+            {weak > 0 && (
+              <Text style={styles.weakText}>{weak} Need Attention</Text>
+            )}
+          </View>
         </View>
-        <View style={styles.statusStats}>
-          <Text style={styles.statusScore}>{score}</Text>
-          <Text style={styles.statusTotal}>/{total} entries</Text>
-        </View>
-      </View>
+      </LinearGradient>
     </View>
   );
 };
@@ -430,6 +498,10 @@ const PasswordPreviewSection = ({
   const [revealedPasswords, setRevealedPasswords] = useState<{
     [key: string]: boolean;
   }>({});
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [selectedPassword, setSelectedPassword] = useState<Password | null>(
+    null
+  );
 
   const PasswordPreviewCard = ({
     item,
@@ -565,15 +637,26 @@ const PasswordPreviewSection = ({
 
             <View style={styles.passwordCredentials}>
               <View style={styles.passwordField}>
-                <Text style={styles.passwordFieldLabel}>Username</Text>
+                <Text style={styles.passwordFieldLabel}>
+                  {item.email
+                    ? "Email"
+                    : item.username
+                    ? "Username"
+                    : "Account"}
+                </Text>
                 <View style={styles.passwordFieldValue}>
                   <Text style={styles.passwordFieldText} numberOfLines={1}>
-                    {item.username || "No username"}
+                    {item.email || item.username || "No account info"}
                   </Text>
-                  {item.username && (
+                  {(item.email || item.username) && (
                     <ReachPressable
                       style={styles.copyButton}
-                      onPress={() => handleCopy(item.username, "Username")}
+                      onPress={() => {
+                        const value = item?.email || item?.username;
+                        if (value) {
+                          handleCopy(value, item.email ? "Email" : "Username");
+                        }
+                      }}
                       reachScale={1.1}
                       pressScale={0.9}
                     >
@@ -622,7 +705,32 @@ const PasswordPreviewSection = ({
             </View>
 
             <View style={styles.passwordQuickActions}>
-              <ReachPressable style={styles.passwordQuickAction}>
+              <ReachPressable
+                style={styles.passwordQuickAction}
+                onPress={() => {
+                  if (item.url) {
+                    Alert.alert(
+                      "Open App",
+                      `Would you like to open ${item.appName}?`,
+                      [
+                        { text: "Cancel", style: "cancel" },
+                        {
+                          text: "Open",
+                          onPress: () => {
+                            // TODO: Add deep linking to open the app
+                            Alert.alert(
+                              "Feature Coming Soon",
+                              "Deep linking to apps will be available in a future update!"
+                            );
+                          },
+                        },
+                      ]
+                    );
+                  }
+                }}
+                reachScale={1.05}
+                pressScale={0.95}
+              >
                 <Ionicons
                   name="open-outline"
                   size={16}
@@ -630,7 +738,16 @@ const PasswordPreviewSection = ({
                 />
                 <Text style={styles.passwordQuickActionText}>Open</Text>
               </ReachPressable>
-              <ReachPressable style={styles.passwordQuickAction}>
+
+              <ReachPressable
+                style={styles.passwordQuickAction}
+                onPress={() => {
+                  setSelectedPassword(item);
+                  setEditModalVisible(true);
+                }}
+                reachScale={1.05}
+                pressScale={0.95}
+              >
                 <Ionicons
                   name="create-outline"
                   size={16}
@@ -675,6 +792,16 @@ const PasswordPreviewSection = ({
           </Text>
         </ReachPressable>
       )}
+
+      <AddPasswordModal
+        visible={editModalVisible}
+        app={null}
+        existingPassword={selectedPassword}
+        onClose={() => {
+          setEditModalVisible(false);
+          setSelectedPassword(null);
+        }}
+      />
     </View>
   );
 };
@@ -863,11 +990,53 @@ export default function VaultScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: insets.bottom + 110 },
+          { paddingBottom: insets.bottom + 120 },
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <SpaceHeader />
+        <SpaceHeader
+          userName={undefined}
+          totalPasswords={totalPasswords}
+          totalNotes={state.secureNotes.length}
+        />
+
+        <View style={styles.statsContainer}>
+          <View style={styles.statCard}>
+            <LinearGradient
+              colors={["rgba(0, 212, 255, 0.1)", "rgba(0, 212, 255, 0.05)"]}
+              style={styles.statCardGradient}
+            >
+              <View style={styles.statIconContainer}>
+                <Ionicons name="key" size={20} color={Colors.dark.primary} />
+              </View>
+              <View style={styles.statContent}>
+                <Text style={styles.statNumber}>{totalPasswords}</Text>
+                <Text style={styles.statLabel}>Passwords</Text>
+              </View>
+            </LinearGradient>
+          </View>
+
+          <View style={styles.statCard}>
+            <LinearGradient
+              colors={["rgba(0, 255, 127, 0.1)", "rgba(0, 255, 127, 0.05)"]}
+              style={styles.statCardGradient}
+            >
+              <View style={styles.statIconContainer}>
+                <Ionicons
+                  name="document-lock"
+                  size={20}
+                  color={Colors.dark.neonGreen}
+                />
+              </View>
+              <View style={styles.statContent}>
+                <Text style={styles.statNumber}>
+                  {state.secureNotes.length}
+                </Text>
+                <Text style={styles.statLabel}>Secure Notes</Text>
+              </View>
+            </LinearGradient>
+          </View>
+        </View>
 
         <SecurityStatus
           score={securityScore}
@@ -987,15 +1156,15 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 12,
+    paddingTop: 16,
+    gap: 28,
   },
-  // Clean Space Header
+  // Enhanced Space Header
   spaceHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 32,
-    paddingTop: 8,
+    paddingHorizontal: 10,
+    marginBottom: 0,
+    position: "relative",
+    overflow: "hidden",
   },
   headerContent: {
     flex: 1,
@@ -1005,12 +1174,47 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     fontWeight: "500",
     letterSpacing: 1,
+    marginBottom: 4,
   },
   vaultTitle: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: "700",
     color: Colors.dark.text,
+    letterSpacing: 0.3,
+    marginBottom: 16,
+  },
+  headerStats: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    borderRadius: 16,
+    padding: 14,
+    alignSelf: "flex-start",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    marginTop: 4,
+  },
+  headerStat: {
+    alignItems: "center",
+  },
+  headerStatNumber: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    marginBottom: 2,
+  },
+  headerStatLabel: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+    fontWeight: "500",
+    textTransform: "uppercase",
     letterSpacing: 0.5,
+  },
+  headerStatDivider: {
+    width: 1,
+    height: 32,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    marginHorizontal: 16,
   },
   spaceButton: {
     borderRadius: 24,
@@ -1037,7 +1241,7 @@ const styles = StyleSheet.create({
   },
   // Secure Notes Section - Priority #1
   notesSection: {
-    marginBottom: 40,
+    marginBottom: 0,
   },
   notesSectionHeader: {
     flexDirection: "row",
@@ -1046,8 +1250,8 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   notesSectionTitle: {
-    fontSize: 24,
-    fontWeight: "600",
+    fontSize: 22,
+    fontWeight: "700",
     color: Colors.dark.text,
     letterSpacing: 0.3,
   },
@@ -1165,7 +1369,7 @@ const styles = StyleSheet.create({
   },
   // Simple Security Status
   securityStatus: {
-    marginBottom: 32,
+    marginBottom: 0,
     backgroundColor: "rgba(255, 255, 255, 0.02)",
     borderRadius: 16,
     borderWidth: 1,
@@ -1190,24 +1394,8 @@ const styles = StyleSheet.create({
   statusInfo: {
     flex: 1,
   },
-  statusTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: Colors.dark.text,
-    marginBottom: 2,
-  },
-  statusText: {
-    fontSize: 14,
-    fontWeight: "500",
-  },
   statusStats: {
     alignItems: "flex-end",
-  },
-  statusScore: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: Colors.dark.text,
-    lineHeight: 26,
   },
   statusTotal: {
     fontSize: 12,
@@ -1220,7 +1408,7 @@ const styles = StyleSheet.create({
   },
   // Space Access Button
   spaceAccessButton: {
-    marginBottom: 32,
+    marginBottom: 0,
     backgroundColor: "rgba(255, 255, 255, 0.02)",
     borderRadius: 20,
     borderWidth: 1,
@@ -1239,7 +1427,7 @@ const styles = StyleSheet.create({
   // Beautiful Space Welcome Screen
   spaceWelcomeContainer: {
     marginHorizontal: -20,
-    marginBottom: 40,
+    marginBottom: 0,
     minHeight: 600,
     position: "relative",
   },
@@ -1431,17 +1619,17 @@ const styles = StyleSheet.create({
   },
   // Space Quick Actions - Fixed shadows
   spaceQuickActions: {
-    marginBottom: 32,
+    marginBottom: 0,
   },
   quickActionsTitle: {
-    fontSize: 20,
-    fontWeight: "600",
+    fontSize: 22,
+    fontWeight: "700",
     color: Colors.dark.text,
-    marginBottom: 16,
+    marginBottom: 18,
     letterSpacing: 0.3,
   },
   quickActionsGrid: {
-    gap: 12,
+    gap: 14,
   },
   spaceActionCard: {
     borderRadius: 16,
@@ -1493,17 +1681,17 @@ const styles = StyleSheet.create({
   },
   // Password Preview Section
   passwordPreviewSection: {
-    marginBottom: 32,
+    marginBottom: 0,
   },
   passwordPreviewTitle: {
     fontSize: 22,
     fontWeight: "700",
     color: Colors.dark.text,
-    marginBottom: 4,
+    marginBottom: 18,
     letterSpacing: 0.3,
   },
   passwordPreviewGrid: {
-    gap: 16,
+    gap: 18,
   },
   passwordPreviewCard: {
     borderRadius: 20,
@@ -1696,5 +1884,268 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: Colors.dark.background,
     letterSpacing: 1,
+  },
+
+  // New Enhanced Header Styles
+  headerGlow: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 110,
+    backgroundColor: "rgba(0, 212, 255, 0.03)",
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "rgba(0, 212, 255, 0.08)",
+  },
+  headerMainContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    paddingTop: 16,
+    overflow: "hidden",
+    paddingHorizontal: 4,
+    zIndex: 1,
+    height: 110,
+  },
+  headerLeft: {
+    flex: 1,
+  },
+  greetingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  greetingTime: {
+    fontSize: 13,
+    color: Colors.dark.primary,
+    fontWeight: "700",
+    letterSpacing: 1.2,
+  },
+  greetingDate: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+    fontWeight: "500",
+    letterSpacing: 0.5,
+  },
+  welcomeMessage: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: Colors.dark.text,
+    letterSpacing: 0.2,
+    marginVertical: 5,
+  },
+  vaultSubtitle: {
+    fontSize: 14,
+    color: Colors.dark.textSecondary,
+    fontWeight: "500",
+    letterSpacing: 0.3,
+  },
+  statsContainer: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  statCard: {
+    flex: 1,
+  },
+  statCardGradient: {
+    borderRadius: 16,
+    padding: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    gap: 12,
+  },
+  statIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  statContent: {
+    flex: 1,
+  },
+  statNumber: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: Colors.dark.text,
+    marginBottom: 2,
+  },
+  statLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+  },
+
+  // Enhanced Security Status Styles
+  securityStatusGradient: {
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+  },
+  statusHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 16,
+    gap: 16,
+  },
+  statusIconContainer: {
+    marginTop: 2,
+  },
+  statusIconGradient: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+  statusHeaderText: {
+    flex: 1,
+  },
+  statusTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    marginBottom: 4,
+    letterSpacing: 0.3,
+  },
+  statusText: {
+    fontSize: 18,
+    fontWeight: "800",
+    marginBottom: 2,
+    letterSpacing: 0.2,
+  },
+  statusDescription: {
+    fontSize: 13,
+    color: Colors.dark.textMuted,
+    fontWeight: "500",
+    letterSpacing: 0.2,
+  },
+  statusScoreContainer: {
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderRadius: 16,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+  statusScore: {
+    fontSize: 24,
+    fontWeight: "900",
+    color: Colors.dark.text,
+    marginBottom: 2,
+  },
+  statusScoreLabel: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  progressContainer: {
+    gap: 12,
+  },
+  progressTrack: {
+    height: 6,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  progressBar: {
+    height: "100%",
+    borderRadius: 3,
+    shadowColor: Colors.dark.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 4,
+  },
+  progressStats: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  progressText: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+    fontWeight: "600",
+  },
+  weakText: {
+    fontSize: 12,
+    color: Colors.dark.warning,
+    fontWeight: "600",
+  },
+
+  // Floating Decoration Elements
+  floatingElements: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: -1,
+  },
+  floatingOrb: {
+    position: "absolute",
+    borderRadius: 50,
+    opacity: 0.4,
+  },
+  floatingOrb1: {
+    width: 80,
+    height: 80,
+    backgroundColor: "rgba(0, 212, 255, 0.1)",
+    top: "15%",
+    right: "10%",
+    shadowColor: Colors.dark.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+  },
+  floatingOrb2: {
+    width: 60,
+    height: 60,
+    backgroundColor: "rgba(0, 255, 127, 0.08)",
+    top: "40%",
+    left: "5%",
+    shadowColor: Colors.dark.neonGreen,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.2,
+    shadowRadius: 15,
+  },
+  floatingOrb3: {
+    width: 40,
+    height: 40,
+    backgroundColor: "rgba(138, 43, 226, 0.1)",
+    top: "70%",
+    right: "15%",
+    shadowColor: "#8A2BE2",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+  },
+  floatingHex: {
+    position: "absolute",
+    width: 30,
+    height: 30,
+    backgroundColor: "transparent",
+    borderWidth: 1,
+    borderColor: "rgba(0, 212, 255, 0.2)",
+    transform: [{ rotate: "30deg" }],
+  },
+  floatingHex1: {
+    top: "25%",
+    left: "20%",
+  },
+  floatingHex2: {
+    top: "60%",
+    right: "25%",
+    borderColor: "rgba(0, 255, 127, 0.2)",
   },
 });

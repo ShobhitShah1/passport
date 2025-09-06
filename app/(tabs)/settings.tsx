@@ -6,6 +6,7 @@ import {
   clearAllData,
   exportEncryptedData,
   importEncryptedData,
+  verifyMasterPassword,
 } from "@/services/storage/secureStorage";
 import { usePasswordStore } from "@/stores/passwordStore";
 import { UserSettings } from "@/types";
@@ -637,6 +638,21 @@ export default function SettingsTabScreen() {
       console.log("Starting import process...");
       console.log("Import data type:", typeof encryptedData);
 
+      // First verify if the provided password is correct by checking against stored hash
+      // OR by trying to decrypt the data directly
+      console.log("Verifying master password for import...");
+      
+      // Try to verify against current stored password first
+      let isPasswordValid = false;
+      try {
+        isPasswordValid = await verifyMasterPassword(masterPassword);
+        console.log("Password verification against stored hash:", isPasswordValid);
+      } catch (verifyError) {
+        console.log("Could not verify against stored hash, will try direct decryption");
+        // If verification fails, we'll let the importEncryptedData function try to decrypt
+        // and catch the specific decryption error
+      }
+
       // The encryptedData should already be the correct format from exportEncryptedData
       console.log("Calling importEncryptedData...");
       console.log("Data type being imported:", typeof encryptedData);
@@ -738,19 +754,72 @@ export default function SettingsTabScreen() {
           },
         ]);
       } else {
+        // Import failed - show error with option to try again
         Alert.alert(
-          "Import Failed",
-          "Failed to import data. This could be due to:\n\n• Incorrect master password\n• Corrupted backup file\n• Incompatible backup format\n\nPlease verify the master password and try again."
+          "❌ Import Failed",
+          "Unable to import the backup data. This is most likely due to an incorrect master password.\n\nPlease check your master password and try again.",
+          [
+            {
+              text: "Try Again",
+              onPress: () => {
+                // Reset and show password modal again
+                setImportPassword("");
+                setShowPasswordModal(true);
+              },
+            },
+            {
+              text: "Cancel",
+              style: "cancel",
+              onPress: () => {
+                setImportData(null);
+                setImportPassword("");
+              },
+            },
+          ]
         );
       }
     } catch (error: any) {
       console.error("Import error:", error);
-      Alert.alert(
-        "Import Error",
-        `Failed to import data.\n\nError: ${
-          error?.message || "" || error
-        }\n\nThis could be due to:\n• Incorrect master password\n• Corrupted or invalid backup file\n• Network or storage issues`
-      );
+      
+      // Check if it's likely a decryption/password error
+      const errorMessage = error?.message?.toLowerCase() || "";
+      const isPasswordError = errorMessage.includes("decrypt") || 
+                             errorMessage.includes("cipher") || 
+                             errorMessage.includes("key") ||
+                             errorMessage.includes("invalid") ||
+                             errorMessage.includes("corrupt");
+      
+      if (isPasswordError) {
+        Alert.alert(
+          "❌ Wrong Master Password",
+          "The master password you entered is incorrect. The backup file cannot be decrypted with this password.\n\nPlease enter the correct master password that was used when creating this backup.",
+          [
+            {
+              text: "Try Again",
+              onPress: () => {
+                // Reset and show password modal again
+                setImportPassword("");
+                setShowPasswordModal(true);
+              },
+            },
+            {
+              text: "Cancel",
+              style: "cancel",
+              onPress: () => {
+                setImportData(null);
+                setImportPassword("");
+              },
+            },
+          ]
+        );
+      } else {
+        Alert.alert(
+          "Import Error",
+          `Failed to import data.\n\nError: ${
+            error?.message || error
+          }\n\nThis could be due to:\n• Corrupted or invalid backup file\n• Network or storage issues\n• Incompatible backup format`
+        );
+      }
     } finally {
       setIsLoading(false);
     }

@@ -16,6 +16,7 @@ import {
   savePasswords,
   saveSecureNotes,
   saveSettings,
+  verifyMasterPassword,
 } from "../services/storage/secureStorage";
 import WidgetUpdateService from "../services/widget/WidgetUpdateService";
 import { AppAction, AppState, UserSettings } from "../types";
@@ -249,7 +250,15 @@ export function AppProvider({ children }: AppProviderProps) {
       dispatch({ type: "SET_LOADING", payload: true });
       dispatch({ type: "SET_ERROR", payload: null });
 
-      // Load user data with the master password
+      // First, verify the master password against stored hash
+      const isPasswordValid = await verifyMasterPassword(masterPassword);
+      if (!isPasswordValid) {
+        console.log("Master password verification failed");
+        dispatch({ type: "SET_ERROR", payload: "Invalid PIN or password" });
+        return false;
+      }
+
+      // Load user data with the verified password
       await loadUserData(masterPassword);
 
       dispatch({
@@ -266,6 +275,7 @@ export function AppProvider({ children }: AppProviderProps) {
 
       return true;
     } catch (error) {
+      console.error("Authentication error:", error);
       dispatch({ type: "SET_ERROR", payload: "Failed to authenticate" });
       return false;
     } finally {

@@ -11,6 +11,7 @@ import {
   AuthField,
   AuthFieldType,
   InstalledApp,
+  Password,
   PasswordStrength,
 } from "@/types";
 import { ensureAuthenticated } from "@/utils/authSync";
@@ -47,15 +48,18 @@ const { height: screenHeight, width: screenWidth } = Dimensions.get("window");
 interface AddPasswordModalProps {
   visible: boolean;
   app: InstalledApp | null;
+  existingPassword?: Password | null; // For editing existing passwords
   onClose: () => void;
 }
 
 // Simplified Header with Hexagon
 const HolographicHeader = ({
   app,
+  existingPassword,
   onClose,
 }: {
   app: InstalledApp;
+  existingPassword?: Password | null;
   onClose: () => void;
 }) => {
   return (
@@ -71,7 +75,7 @@ const HolographicHeader = ({
           />
           <View style={styles.headerInfo}>
             <Text style={styles.holoAppName}>{app.name}</Text>
-            <Text style={styles.holoSubtitle}>Add Secure Password</Text>
+            <Text style={styles.holoSubtitle}>{existingPassword ? 'Edit Secure Password' : 'Add Secure Password'}</Text>
           </View>
         </View>
 
@@ -304,6 +308,7 @@ const HolographicStrengthMeter = ({ password }: { password: string }) => {
 export default function AddPasswordModal({
   visible,
   app,
+  existingPassword,
   onClose,
 }: AddPasswordModalProps) {
   const { state, dispatch } = useAppContext();
@@ -321,6 +326,36 @@ export default function AddPasswordModal({
   const [showAddField, setShowAddField] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Prefill data when editing existing password
+  useEffect(() => {
+    if (existingPassword && visible) {
+      const identifierType = existingPassword.email ? "email" : existingPassword.username ? "username" : "email";
+      const identifier = existingPassword.email || existingPassword.username || "";
+      
+      setFormData({
+        identifierType,
+        identifier,
+        customLabel: "",
+        password: existingPassword.password,
+        url: existingPassword.url || "",
+        notes: existingPassword.notes || "",
+      });
+      
+      setCustomFields(existingPassword.customFields || []);
+    } else if (visible && !existingPassword) {
+      // Reset form for new password
+      setFormData({
+        identifierType: "email",
+        identifier: "",
+        customLabel: "",
+        password: "",
+        url: "",
+        notes: "",
+      });
+      setCustomFields([]);
+    }
+  }, [existingPassword, visible]);
 
   // Animation values - separate native and JS driven animations
   const slideAnim = useRef(new Animated.Value(screenHeight)).current;
@@ -515,7 +550,12 @@ export default function AddPasswordModal({
   );
 
   const handleSave = async () => {
-    if (!app) return;
+    // For editing, we need the app info from existing password or the provided app
+    const appInfo = existingPassword ? 
+      { name: existingPassword.appName, id: existingPassword.appId } : 
+      app;
+      
+    if (!appInfo) return;
 
     if (!formData.password.trim()) {
       Alert.alert("SECURITY BREACH", "Neural key required for data encryption");
@@ -552,8 +592,8 @@ export default function AddPasswordModal({
 
       // Create passwordEntry compatible with the new store
       const passwordEntry = {
-        appName: app.name,
-        appId: app.id,
+        appName: appInfo.name,
+        appId: appInfo.id,
         username:
           formData.identifierType === "username"
             ? formData.identifier
@@ -561,7 +601,7 @@ export default function AddPasswordModal({
         email:
           formData.identifierType === "email" ? formData.identifier : undefined,
         password: formData.password,
-        url: formData.url || `https://${app.name.toLowerCase()}.com`,
+        url: formData.url || `https://${appInfo.name.toLowerCase()}.com`,
         notes: formData.notes,
         customFields: [
           ...customFields,
@@ -592,17 +632,23 @@ export default function AddPasswordModal({
             : []),
         ],
         strength: calculatePasswordStrength(formData.password),
-        isFavorite: false,
-        tags: [formData.identifierType], // Add the type as a tag for easier filtering
+        isFavorite: existingPassword?.isFavorite || false,
+        tags: existingPassword?.tags || [formData.identifierType], // Preserve existing tags or add the type as a tag
       };
 
       // Try to save to passwordStore first, fallback to manual storage if needed
       let savedToPasswordStore = false;
       try {
         if (passwordStore.isAuthenticated) {
-          await passwordStore.addPassword(passwordEntry);
+          if (existingPassword) {
+            // Update existing password
+            await passwordStore.updatePassword(existingPassword.id, passwordEntry);
+          } else {
+            // Add new password
+            await passwordStore.addPassword(passwordEntry);
+          }
           savedToPasswordStore = true;
-          console.log("Successfully saved to passwordStore");
+          console.log(existingPassword ? "Successfully updated password in passwordStore" : "Successfully saved to passwordStore");
         }
       } catch (storeError) {
         console.warn(
@@ -611,24 +657,30 @@ export default function AddPasswordModal({
         );
       }
 
-      // Also add to the legacy context system for compatibility
+      // Also add/update to the legacy context system for compatibility
       const legacyPassword = {
-        id: Date.now().toString(),
-        appName: app.name,
-        appId: app.id,
+        id: existingPassword?.id || Date.now().toString(),
+        appName: appInfo.name,
+        appId: appInfo.id,
         username: passwordEntry.username || passwordEntry.email || "user",
+        email: passwordEntry.email,
         password: passwordEntry.password,
-        url: passwordEntry.url || `https://${app.name.toLowerCase()}.com`,
+        url: passwordEntry.url || `https://${appInfo.name.toLowerCase()}.com`,
         notes: passwordEntry.notes || "",
         customFields: passwordEntry.customFields,
-        createdAt: new Date(),
+        createdAt: existingPassword?.createdAt || new Date(),
         updatedAt: new Date(),
+        lastUsed: existingPassword?.lastUsed,
         strength: passwordEntry.strength,
-        isFavorite: false,
+        isFavorite: passwordEntry.isFavorite,
         tags: passwordEntry.tags,
       };
 
-      dispatch({ type: "ADD_PASSWORD", payload: legacyPassword });
+      if (existingPassword) {
+        dispatch({ type: "UPDATE_PASSWORD", payload: legacyPassword });
+      } else {
+        dispatch({ type: "ADD_PASSWORD", payload: legacyPassword });
+      }
 
       // If passwordStore failed, also save manually to secure storage
       if (!savedToPasswordStore && state.masterPassword) {
@@ -636,9 +688,18 @@ export default function AddPasswordModal({
           const { savePasswords } = await import(
             "@/services/storage/secureStorage"
           );
-          const updatedPasswords = [...state.passwords, legacyPassword];
+          let updatedPasswords;
+          if (existingPassword) {
+            // Update existing password in the array
+            updatedPasswords = state.passwords.map(pwd => 
+              pwd.id === existingPassword.id ? legacyPassword : pwd
+            );
+          } else {
+            // Add new password to the array
+            updatedPasswords = [...state.passwords, legacyPassword];
+          }
           await savePasswords(updatedPasswords, state.masterPassword);
-          console.log("Manually saved to secure storage as fallback");
+          console.log(existingPassword ? "Manually updated in secure storage as fallback" : "Manually saved to secure storage as fallback");
         } catch (manualSaveError) {
           console.error("Manual save also failed:", manualSaveError);
           // Still show success as we saved to context
@@ -647,7 +708,7 @@ export default function AddPasswordModal({
 
       Alert.alert(
         "NEURAL LINK SUCCESS",
-        `Quantum encrypted data stored for ${app.name} ⚡`
+        `Quantum encrypted data ${existingPassword ? 'updated' : 'stored'} for ${appInfo.name} ⚡`
       );
 
       setFormData({
@@ -673,7 +734,7 @@ export default function AddPasswordModal({
     }
   };
 
-  if (!app) return null;
+  if (!app && !existingPassword) return null;
 
   return (
     <Modal
@@ -694,7 +755,7 @@ export default function AddPasswordModal({
             },
           ]}
         >
-          <HolographicHeader app={app} onClose={onClose} />
+          <HolographicHeader app={app || { name: existingPassword?.appName || '', id: existingPassword?.appId || '', packageName: '', isSupported: true }} existingPassword={existingPassword} onClose={onClose} />
 
           <ScrollView
             style={styles.form}
@@ -858,7 +919,7 @@ export default function AddPasswordModal({
                 label="Network Address (Optional)"
                 value={formData.url}
                 onChangeText={handleUrlChange}
-                placeholder={`https://${app.name.toLowerCase()}.com`}
+                placeholder={`https://${(app?.name || existingPassword?.appName || 'example').toLowerCase()}.com`}
                 leftIcon="globe-outline"
                 keyboardType="url"
               />

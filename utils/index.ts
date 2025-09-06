@@ -51,7 +51,7 @@ export function filterPasswords(
     const query = searchQuery.toLowerCase();
     filtered = filtered.filter(password =>
       password.appName.toLowerCase().includes(query) ||
-      password.username.toLowerCase().includes(query) ||
+      password.username?.toLowerCase().includes(query) ||
       password.notes?.toLowerCase().includes(query)
     );
   }

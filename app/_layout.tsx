@@ -8,6 +8,7 @@ import "react-native-reanimated";
 
 import Colors from "@/constants/Colors";
 import { AppProvider } from "@/hooks/useAppContext";
+import { initializeWidgets } from "@/widgets/WidgetProvider";
 
 // Custom space theme
 const SpaceTheme: Theme = {
@@ -50,6 +51,12 @@ export default function RootLayout() {
   useEffect(() => {
     if (loaded) {
       SplashScreen.hideAsync();
+      // Initialize Android widgets
+      try {
+        initializeWidgets();
+      } catch (error) {
+        console.warn('Widget initialization failed:', error);
+      }
     }
   }, [loaded]);
 

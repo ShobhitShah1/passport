@@ -40,7 +40,40 @@
           }
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "react-native-android-widget",
+        {
+          "widgets": [
+            {
+              "name": "NotesWidget",
+              "label": "Passport Notes",
+              "description": "View your secure notes on home screen",
+              "minWidth": "4x2",
+              "minHeight": "2x2",
+              "maxWidth": "4x4",
+              "maxHeight": "4x4",
+              "targetCellWidth": 4,
+              "targetCellHeight": 3,
+              "resizeMode": "horizontal|vertical",
+              "updatePeriodMillis": 1800000
+            },
+            {
+              "name": "NotesWidgetSmall",
+              "label": "Passport Notes Counter",
+              "description": "Quick view of your notes count",
+              "minWidth": "2x2",
+              "minHeight": "2x2",
+              "maxWidth": "2x2",
+              "maxHeight": "2x2",
+              "targetCellWidth": 2,
+              "targetCellHeight": 2,
+              "resizeMode": "none",
+              "updatePeriodMillis": 1800000
+            }
+          ]
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

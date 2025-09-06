@@ -3954,6 +3954,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"expo-clipboard@npm:~7.1.5":
+  version: 7.1.5
+  resolution: "expo-clipboard@npm:7.1.5"
+  peerDependencies:
+    expo: "*"
+    react: "*"
+    react-native: "*"
+  checksum: 10c0/44288d70ab84d687c63261eca294f2decc9eb18172d3dadbdbbfd5aa7d814acfb83c9e9e54e0399ea3052ef90a1312564bd79288a411429a2aeb830fffb5f998
+  languageName: node
+  linkType: hard
+
 "expo-constants@npm:~17.1.7":
   version: 17.1.7
   resolution: "expo-constants@npm:17.1.7"
@@ -5794,7 +5805,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"loose-envify@npm:^1.0.0":
+"loose-envify@npm:^1.0.0, loose-envify@npm:^1.4.0":
   version: 1.4.0
   resolution: "loose-envify@npm:1.4.0"
   dependencies:
@@ -6481,7 +6492,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"object-assign@npm:^4.0.1":
+"object-assign@npm:^4.0.1, object-assign@npm:^4.1.1":
   version: 4.1.1
   resolution: "object-assign@npm:4.1.1"
   checksum: 10c0/1f4df9945120325d041ccf7b86f31e8bcc14e73d29171e37a7903050e96b81323784ec59f93f102ec635bcf6fa8034ba3ea0a8c7e69fa202b87ae3b6cec5a414
@@ -6689,6 +6700,7 @@ __metadata:
     "@types/react": "npm:~19.0.10"
     expo: "npm:~53.0.22"
     expo-blur: "npm:~14.1.5"
+    expo-clipboard: "npm:~7.1.5"
     expo-crypto: "npm:~14.1.5"
     expo-device: "npm:~7.1.4"
     expo-font: "npm:~13.3.2"
@@ -6705,10 +6717,12 @@ __metadata:
     jest-expo: "npm:~53.0.10"
     react: "npm:19.0.0"
     react-native: "npm:0.79.5"
+    react-native-android-widget: "npm:^0.17.1"
     react-native-edge-to-edge: "npm:1.6.0"
     react-native-get-app-list: "npm:^0.1.4"
     react-native-linear-gradient: "npm:^2.8.3"
     react-native-mmkv: "npm:^3.3.0"
+    react-native-modal: "npm:^14.0.0-rc.1"
     react-native-nitro-modules: "npm:^0.29.1"
     react-native-reanimated: "npm:~3.17.4"
     react-native-safe-area-context: "npm:5.4.0"
@@ -6899,6 +6913,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"prop-types@npm:^15.8.1":
+  version: 15.8.1
+  resolution: "prop-types@npm:15.8.1"
+  dependencies:
+    loose-envify: "npm:^1.4.0"
+    object-assign: "npm:^4.1.1"
+    react-is: "npm:^16.13.1"
+  checksum: 10c0/59ece7ca2fb9838031d73a48d4becb9a7cc1ed10e610517c7d8f19a1e02fa47f7c27d557d8a5702bec3cfeccddc853579832b43f449e54635803f277b1c78077
+  languageName: node
+  linkType: hard
+
 "psl@npm:^1.1.33":
   version: 1.15.0
   resolution: "psl@npm:1.15.0"
@@ -7006,6 +7031,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"react-is@npm:^16.13.1":
+  version: 16.13.1
+  resolution: "react-is@npm:16.13.1"
+  checksum: 10c0/33977da7a5f1a287936a0c85639fec6ca74f4f15ef1e59a6bc20338fc73dc69555381e211f7a3529b8150a1f71e4225525b41b60b52965bda53ce7d47377ada1
+  languageName: node
+  linkType: hard
+
 "react-is@npm:^18.0.0":
   version: 18.3.1
   resolution: "react-is@npm:18.3.1"
@@ -7017,6 +7049,29 @@ __metadata:
   version: 19.1.1
   resolution: "react-is@npm:19.1.1"
   checksum: 10c0/3dba763fcd69835ae263dcd6727d7ffcc44c1d616f04b7329e67aefdc66a567af4f8dcecdd29454c7a707c968aa1eb85083a83fb616f01675ef25e71cf082f97
+  languageName: node
+  linkType: hard
+
+"react-native-android-widget@npm:^0.17.1":
+  version: 0.17.1
+  resolution: "react-native-android-widget@npm:0.17.1"
+  peerDependencies:
+    expo: ">=47.0.0"
+    react: "*"
+    react-native: "*"
+  peerDependenciesMeta:
+    expo:
+      optional: true
+  checksum: 10c0/7ea3ffd03009b9e47ced6fdfcb6fc82817ccf7afdb46469d3dbf160af05a3c048cc439fbab5b746b4644609727c05d71c20bffa69b3cb8d87d7bd956b357ffba
+  languageName: node
+  linkType: hard
+
+"react-native-animatable@npm:1.4.0":
+  version: 1.4.0
+  resolution: "react-native-animatable@npm:1.4.0"
+  dependencies:
+    prop-types: "npm:^15.8.1"
+  checksum: 10c0/658f15aa3744c3d6a22a44ab4609afc4335ff06d0a200a1fba513e470ebb4bd561ab709204b3777ee53cad526f695e2b4290e057a50fcd461aca337e407fe2b1
   languageName: node
   linkType: hard
 
@@ -7079,6 +7134,18 @@ __metadata:
     react: "*"
     react-native: "*"
   checksum: 10c0/a1b93b4d5ccc87d9bda88e0708f7d6c2470c56c32daa8de5cbe1df2350c49d697549ce13512ee6b13e91a421093358a7f0a60cf286a8d1bbd63346d8b217def1
+  languageName: node
+  linkType: hard
+
+"react-native-modal@npm:^14.0.0-rc.1":
+  version: 14.0.0-rc.1
+  resolution: "react-native-modal@npm:14.0.0-rc.1"
+  dependencies:
+    react-native-animatable: "npm:1.4.0"
+  peerDependencies:
+    react: "*"
+    react-native: ">=0.70.0"
+  checksum: 10c0/f392008da6456d73819536f2628d4fb536a0634131c957a62ac0b68f65391a0e1473fa297c9873dd5a5c8de32c380464bb48cbfaafe9cfff0abfda6db3486154
   languageName: node
   linkType: hard
 

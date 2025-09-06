@@ -1,180 +1,32 @@
-import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import HolographicBackground from "@/components/HolographicBackground";
+import Button from "@/components/ui/Button";
+import Input from "@/components/ui/Input";
+import { ReachPressable } from "@/components/ui/ReachPressable";
+import Colors from "@/constants/Colors";
+import { useAppContext } from "@/hooks/useAppContext";
+import { saveSecureNotes } from "@/services/storage/secureStorage";
+import { SecureNote } from "@/types";
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import React, { useEffect, useRef, useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  Modal,
   Alert,
-  ScrollView,
-  Dimensions,
   Animated,
-} from 'react-native';
-import { BlurView } from 'expo-blur';
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { 
-  Circle, 
-  Defs, 
-  LinearGradient as SvgLinearGradient, 
-  Stop, 
-  Path,
-  Line,
-} from 'react-native-svg';
+  Dimensions,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import Svg, { Path } from "react-native-svg";
 
-import { useAppContext } from '@/hooks/useAppContext';
-import { SecureNote } from '@/types';
-import { saveSecureNotes } from '@/services/storage/secureStorage';
-import Input from '@/components/ui/Input';
-import Button from '@/components/ui/Button';
-import { ReachPressable } from '@/components/ui/ReachPressable';
-import Colors from '@/constants/Colors';
-
-const { height: screenHeight, width: screenWidth } = Dimensions.get('window');
+const { height: screenHeight, width: screenWidth } = Dimensions.get("window");
 
 interface AddNoteModalProps {
   visible: boolean;
   onClose: () => void;
 }
-
-// Holographic Grid Background
-const HolographicGrid = () => {
-  const gridSize = 30;
-  const cols = Math.ceil(screenWidth / gridSize);
-  const rows = Math.ceil(screenHeight / gridSize);
-
-  return (
-    <Svg
-      width={screenWidth}
-      height={screenHeight}
-      style={StyleSheet.absoluteFill}
-      viewBox={`0 0 ${screenWidth} ${screenHeight}`}
-    >
-      <Defs>
-        <SvgLinearGradient id="gridGradient" x1="0" y1="0" x2="1" y2="1">
-          <Stop offset="0%" stopColor={Colors.dark.primary} stopOpacity="0.3" />
-          <Stop
-            offset="50%"
-            stopColor={Colors.dark.neonGreen}
-            stopOpacity="0.1"
-          />
-          <Stop
-            offset="100%"
-            stopColor={Colors.dark.secondary}
-            stopOpacity="0.2"
-          />
-        </SvgLinearGradient>
-      </Defs>
-
-      {/* Vertical Lines */}
-      {Array.from({ length: cols }).map((_, i) => (
-        <Line
-          key={`v-${i}`}
-          x1={i * gridSize}
-          y1={0}
-          x2={i * gridSize}
-          y2={screenHeight}
-          stroke="url(#gridGradient)"
-          strokeWidth="0.8"
-          opacity={0.4}
-        />
-      ))}
-
-      {/* Horizontal Lines */}
-      {Array.from({ length: rows }).map((_, i) => (
-        <Line
-          key={`h-${i}`}
-          x1={0}
-          y1={i * gridSize}
-          x2={screenWidth}
-          y2={i * gridSize}
-          stroke="url(#gridGradient)"
-          strokeWidth="0.8"
-          opacity={0.4}
-        />
-      ))}
-    </Svg>
-  );
-};
-
-// Animated Particles System
-const ParticleSystem = () => {
-  const particles = useMemo(
-    () =>
-      Array.from({ length: 15 }, (_, i) => ({
-        id: i,
-        x: Math.random() * screenWidth,
-        y: Math.random() * screenHeight,
-        size: Math.random() * 3 + 1,
-        speed: Math.random() * 2 + 0.5,
-        opacity: Math.random() * 0.8 + 0.2,
-      })),
-    []
-  );
-
-  const animatedValues = useRef(
-    particles.map(() => ({
-      translateX: new Animated.Value(Math.random() * screenWidth),
-      translateY: new Animated.Value(Math.random() * screenHeight),
-      opacity: new Animated.Value(Math.random() * 0.8 + 0.2),
-    }))
-  ).current;
-
-  useEffect(() => {
-    const animations = animatedValues.map((anim, i) => {
-      return Animated.loop(
-        Animated.parallel([
-          Animated.timing(anim.translateX, {
-            toValue: Math.random() * screenWidth,
-            duration: 3000 + Math.random() * 2000,
-            useNativeDriver: true,
-          }),
-          Animated.timing(anim.translateY, {
-            toValue: Math.random() * screenHeight,
-            duration: 4000 + Math.random() * 2000,
-            useNativeDriver: true,
-          }),
-          Animated.sequence([
-            Animated.timing(anim.opacity, {
-              toValue: 1,
-              duration: 2000,
-              useNativeDriver: true,
-            }),
-            Animated.timing(anim.opacity, {
-              toValue: 0.2,
-              duration: 2000,
-              useNativeDriver: true,
-            }),
-          ]),
-        ])
-      );
-    });
-
-    animations.forEach((anim) => anim.start());
-    return () => animations.forEach((anim) => anim.stop());
-  }, []);
-
-  return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      {animatedValues.map((anim, i) => (
-        <Animated.View
-          key={i}
-          style={[
-            styles.particle,
-            {
-              transform: [
-                { translateX: anim.translateX },
-                { translateY: anim.translateY },
-              ],
-              opacity: anim.opacity,
-              width: particles[i].size,
-              height: particles[i].size,
-            },
-          ]}
-        />
-      ))}
-    </View>
-  );
-};
 
 // Simplified Header
 const HolographicHeader = ({ onClose }: { onClose: () => void }) => {
@@ -182,7 +34,11 @@ const HolographicHeader = ({ onClose }: { onClose: () => void }) => {
     <View style={styles.holographicHeader}>
       <View style={styles.headerContainer}>
         <View style={styles.headerContent}>
-          <Ionicons name="document-lock" size={40} color={Colors.dark.neonGreen} />
+          <Ionicons
+            name="document-lock"
+            size={40}
+            color={Colors.dark.neonGreen}
+          />
           <View style={styles.headerInfo}>
             <Text style={styles.holoAppName}>Secure Note</Text>
             <Text style={styles.holoSubtitle}>Create Encrypted Note</Text>
@@ -195,11 +51,7 @@ const HolographicHeader = ({ onClose }: { onClose: () => void }) => {
           reachScale={1.1}
           pressScale={0.9}
         >
-          <Ionicons
-            name="close-circle"
-            size={32}
-            color={Colors.dark.error}
-          />
+          <Ionicons name="close-circle" size={32} color={Colors.dark.error} />
         </ReachPressable>
       </View>
     </View>
@@ -317,26 +169,23 @@ const HoloInput = ({
 };
 
 const NOTE_CATEGORIES = [
-  'Personal',
-  'Work',
-  'Finance',
-  'Travel',
-  'Health',
-  'Important',
-  'Other',
+  "Personal",
+  "Work",
+  "Finance",
+  "Travel",
+  "Health",
+  "Important",
+  "Other",
 ];
 
-export default function AddNoteModal({
-  visible,
-  onClose,
-}: AddNoteModalProps) {
+export default function AddNoteModal({ visible, onClose }: AddNoteModalProps) {
   const { state, dispatch } = useAppContext();
-  
+
   const [formData, setFormData] = useState({
-    title: '',
-    content: '',
-    category: 'Personal',
-    tags: '',
+    title: "",
+    content: "",
+    category: "Personal",
+    tags: "",
   });
   const [isSaving, setIsSaving] = useState(false);
 
@@ -387,12 +236,15 @@ export default function AddNoteModal({
 
   const handleSave = async () => {
     if (!formData.title.trim()) {
-      Alert.alert('SECURITY BREACH', 'Neural title required for data encryption');
+      Alert.alert(
+        "SECURITY BREACH",
+        "Neural title required for data encryption"
+      );
       return;
     }
 
     if (!formData.content.trim()) {
-      Alert.alert('ACCESS DENIED', 'Data content matrix incomplete');
+      Alert.alert("ACCESS DENIED", "Data content matrix incomplete");
       return;
     }
 
@@ -403,33 +255,36 @@ export default function AddNoteModal({
         title: formData.title.trim(),
         content: formData.content.trim(),
         category: formData.category,
-        tags: formData.tags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0),
+        tags: formData.tags
+          .split(",")
+          .map((tag) => tag.trim())
+          .filter((tag) => tag.length > 0),
         isFavorite: false,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
 
-      dispatch({ type: 'ADD_SECURE_NOTE', payload: newNote });
-      
+      dispatch({ type: "ADD_SECURE_NOTE", payload: newNote });
+
       if (state.masterPassword) {
         const updatedNotes = [...state.secureNotes, newNote];
         await saveSecureNotes(updatedNotes, state.masterPassword);
       }
-      
+
       Alert.alert(
-        'NEURAL LINK SUCCESS',
+        "NEURAL LINK SUCCESS",
         `Quantum encrypted note stored securely ⚡`
       );
-      
+
       setFormData({
-        title: '',
-        content: '',
-        category: 'Personal',
-        tags: '',
+        title: "",
+        content: "",
+        category: "Personal",
+        tags: "",
       });
       onClose();
     } catch (error) {
-      Alert.alert('SYSTEM FAILURE', 'Neural network encryption failed');
+      Alert.alert("SYSTEM FAILURE", "Neural network encryption failed");
     } finally {
       setIsSaving(false);
     }
@@ -443,10 +298,7 @@ export default function AddNoteModal({
       statusBarTranslucent
     >
       <Animated.View style={[styles.modalOverlay, { opacity: opacityAnim }]}>
-        <BlurView intensity={120} tint="dark" style={StyleSheet.absoluteFill}>
-          <HolographicGrid />
-          <ParticleSystem />
-        </BlurView>
+        <HolographicBackground />
 
         <Animated.View
           style={[
@@ -469,7 +321,9 @@ export default function AddNoteModal({
               <Input
                 label="Neural Title"
                 value={formData.title}
-                onChangeText={(title) => setFormData(prev => ({ ...prev, title }))}
+                onChangeText={(title) =>
+                  setFormData((prev) => ({ ...prev, title }))
+                }
                 placeholder="Enter quantum note identifier"
                 leftIcon="text-outline"
               />
@@ -477,23 +331,33 @@ export default function AddNoteModal({
 
             <HoloInput title="CLASSIFICATION MATRIX" icon="library">
               <Text style={styles.categoryLabel}>Security Classification</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryScroll}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.categoryScroll}
+              >
                 <View style={styles.categoryOptions}>
                   {NOTE_CATEGORIES.map((category) => (
                     <ReachPressable
                       key={category}
-                      onPress={() => setFormData(prev => ({ ...prev, category }))}
+                      onPress={() =>
+                        setFormData((prev) => ({ ...prev, category }))
+                      }
                       style={[
                         styles.categoryOption,
-                        formData.category === category && styles.categoryOptionSelected
+                        formData.category === category &&
+                          styles.categoryOptionSelected,
                       ]}
                       reachScale={1.05}
                       pressScale={0.95}
                     >
-                      <Text style={[
-                        styles.categoryOptionText,
-                        formData.category === category && styles.categoryOptionTextSelected
-                      ]}>
+                      <Text
+                        style={[
+                          styles.categoryOptionText,
+                          formData.category === category &&
+                            styles.categoryOptionTextSelected,
+                        ]}
+                      >
                         {category.toUpperCase()}
                       </Text>
                     </ReachPressable>
@@ -506,7 +370,9 @@ export default function AddNoteModal({
               <Input
                 label="Encrypted Content"
                 value={formData.content}
-                onChangeText={(content) => setFormData(prev => ({ ...prev, content }))}
+                onChangeText={(content) =>
+                  setFormData((prev) => ({ ...prev, content }))
+                }
                 placeholder="Enter classified data content..."
                 leftIcon="document-text-outline"
                 multiline
@@ -519,7 +385,9 @@ export default function AddNoteModal({
               <Input
                 label="Meta Tags (Optional)"
                 value={formData.tags}
-                onChangeText={(tags) => setFormData(prev => ({ ...prev, tags }))}
+                onChangeText={(tags) =>
+                  setFormData((prev) => ({ ...prev, tags }))
+                }
                 placeholder="Enter quantum tags separated by commas"
                 leftIcon="pricetag-outline"
               />
@@ -549,7 +417,9 @@ export default function AddNoteModal({
                 }
                 onPress={handleSave}
                 variant="primary"
-                disabled={isSaving || !formData.title.trim() || !formData.content.trim()}
+                disabled={
+                  isSaving || !formData.title.trim() || !formData.content.trim()
+                }
                 style={styles.saveButton}
               />
             </LinearGradient>

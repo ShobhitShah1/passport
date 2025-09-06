@@ -236,6 +236,13 @@ export default function SetupScreen() {
         const newPin = pin + digit;
         setPin(newPin);
         setError("");
+        
+        // Auto-continue when PIN is complete
+        if (newPin.length === 4) {
+          setTimeout(() => {
+            setStep("confirm");
+          }, 200);
+        }
       }
     } else {
       if (confirmPin.length < 4) {
@@ -244,7 +251,7 @@ export default function SetupScreen() {
         setError("");
 
         if (newConfirmPin.length === 4) {
-          setTimeout(() => validatePins(pin, newConfirmPin), 300);
+          setTimeout(() => validatePins(pin, newConfirmPin), 200);
         }
       }
     }
@@ -279,15 +286,10 @@ export default function SetupScreen() {
         setConfirmPin("");
         setStep("create");
         setPin("");
-      }, 1500);
+      }, 300);
     }
   };
 
-  const proceedToConfirm = () => {
-    if (pin.length === 4) {
-      setStep("confirm");
-    }
-  };
 
   const handleSetup = async (masterPin: string) => {
     setIsLoading(true);
@@ -392,17 +394,6 @@ export default function SetupScreen() {
           )}
         </Animated.View>
 
-        {step === "create" && pin.length === 4 && (
-          <View style={styles.actionContainer}>
-            <Button
-              title="Continue"
-              onPress={proceedToConfirm}
-              variant="primary"
-              fullWidth
-              style={styles.actionButton}
-            />
-          </View>
-        )}
       </View>
     </View>
   );

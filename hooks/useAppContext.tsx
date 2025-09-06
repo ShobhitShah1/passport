@@ -1,6 +1,22 @@
-import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
-import { AppState, AppAction, UserSettings } from '../types';
-import { loadPasswords, loadSecureNotes, loadSettings, isAppSetup, savePasswords, saveSecureNotes, saveSettings } from '../services/storage/secureStorage';
+import React, {
+  createContext,
+  useContext,
+  useReducer,
+  useEffect,
+  ReactNode,
+} from "react";
+import { AppState, AppAction, UserSettings } from "../types";
+import {
+  loadPasswords,
+  loadSecureNotes,
+  loadSettings,
+  isAppSetup,
+  savePasswords,
+  saveSecureNotes,
+  saveSettings,
+} from "../services/storage/secureStorage";
+import WidgetUpdateService from "../services/widget/WidgetUpdateService";
+import { syncAuthentication } from "../utils/authSync";
 
 const initialState: AppState = {
   isAuthenticated: false,
@@ -23,7 +39,7 @@ const initialState: AppState = {
       securityTips: true,
     },
   },
-  searchQuery: '',
+  searchQuery: "",
   selectedCategory: null,
   loading: false,
   error: null,
@@ -31,7 +47,7 @@ const initialState: AppState = {
 
 function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
-    case 'AUTHENTICATE':
+    case "AUTHENTICATE":
       return {
         ...state,
         isAuthenticated: action.payload.isAuthenticated,
@@ -39,8 +55,8 @@ function appReducer(state: AppState, action: AppAction): AppState {
         masterPassword: action.payload.masterPassword,
         error: null,
       };
-    
-    case 'LOCK_APP':
+
+    case "LOCK_APP":
       return {
         ...state,
         isAuthenticated: false,
@@ -49,95 +65,108 @@ function appReducer(state: AppState, action: AppAction): AppState {
         passwords: [], // Clear sensitive data when locked
         secureNotes: [], // Clear sensitive data when locked
       };
-    
-    case 'SET_PASSWORDS':
+
+    case "SET_PASSWORDS":
       return {
         ...state,
         passwords: action.payload,
       };
-    
-    case 'ADD_PASSWORD':
+
+    case "ADD_PASSWORD":
       return {
         ...state,
         passwords: [...state.passwords, action.payload],
       };
-    
-    case 'UPDATE_PASSWORD':
+
+    case "UPDATE_PASSWORD":
       return {
         ...state,
-        passwords: state.passwords.map(password =>
+        passwords: state.passwords.map((password) =>
           password.id === action.payload.id ? action.payload : password
         ),
       };
-    
-    case 'DELETE_PASSWORD':
+
+    case "DELETE_PASSWORD":
       return {
         ...state,
-        passwords: state.passwords.filter(password => password.id !== action.payload),
+        passwords: state.passwords.filter(
+          (password) => password.id !== action.payload
+        ),
       };
-    
-    case 'SET_SECURE_NOTES':
+
+    case "SET_SECURE_NOTES":
       return {
         ...state,
         secureNotes: action.payload,
       };
-    
-    case 'ADD_SECURE_NOTE':
+
+    case "ADD_SECURE_NOTE":
+      const newNotesAfterAdd = [...state.secureNotes, action.payload];
+      // Trigger widget update
+      WidgetUpdateService.onNoteAdded(newNotesAfterAdd);
       return {
         ...state,
-        secureNotes: [...state.secureNotes, action.payload],
+        secureNotes: newNotesAfterAdd,
       };
-    
-    case 'UPDATE_SECURE_NOTE':
+
+    case "UPDATE_SECURE_NOTE":
+      const newNotesAfterUpdate = state.secureNotes.map((note) =>
+        note.id === action.payload.id ? action.payload : note
+      );
+      // Trigger widget update
+      WidgetUpdateService.onNoteUpdated(newNotesAfterUpdate);
       return {
         ...state,
-        secureNotes: state.secureNotes.map(note =>
-          note.id === action.payload.id ? action.payload : note
-        ),
+        secureNotes: newNotesAfterUpdate,
       };
-    
-    case 'DELETE_SECURE_NOTE':
+
+    case "DELETE_SECURE_NOTE":
+      const newNotesAfterDelete = state.secureNotes.filter(
+        (note) => note.id !== action.payload
+      );
+      // Trigger widget update
+      WidgetUpdateService.onNoteDeleted(newNotesAfterDelete);
       return {
         ...state,
-        secureNotes: state.secureNotes.filter(note => note.id !== action.payload),
+        secureNotes: newNotesAfterDelete,
       };
-    
-    case 'SET_INSTALLED_APPS':
+
+    case "SET_INSTALLED_APPS":
       return {
         ...state,
         installedApps: action.payload,
       };
-    
-    case 'UPDATE_SETTINGS':
+
+    case "UPDATE_SETTINGS":
       return {
         ...state,
         settings: { ...state.settings, ...action.payload },
       };
-    
-    case 'SET_SEARCH_QUERY':
+
+    case "SET_SEARCH_QUERY":
       return {
         ...state,
         searchQuery: action.payload,
       };
-    
-    case 'SET_SELECTED_CATEGORY':
+
+    case "SET_SELECTED_CATEGORY":
       return {
         ...state,
         selectedCategory: action.payload,
       };
-    
-    case 'SET_LOADING':
+
+    case "SET_LOADING":
       return {
         ...state,
         loading: action.payload,
       };
-    
-    case 'SET_ERROR':
+
+    case "SET_ERROR":
       return {
         ...state,
         error: action.payload,
       };
-    
+
     default:
       return state;
   }
@@ -178,7 +207,7 @@ export function AppProvider({ children }: AppProviderProps) {
     }
 
     const timeoutId = setTimeout(() => {
-      dispatch({ type: 'LOCK_APP' });
+      dispatch({ type: "LOCK_APP" });
     }, state.settings.autoLockTimeout * 60 * 1000);
 
     return () => clearTimeout(timeoutId);
@@ -186,43 +215,54 @@ export function AppProvider({ children }: AppProviderProps) {
 
   const authenticate = async (masterPassword: string): Promise<boolean> => {
     try {
-      dispatch({ type: 'SET_LOADING', payload: true });
-      dispatch({ type: 'SET_ERROR', payload: null });
+      dispatch({ type: "SET_LOADING", payload: true });
+      dispatch({ type: "SET_ERROR", payload: null });
 
       // Load user data with the master password
       await loadUserData(masterPassword);
-      
-      dispatch({ type: 'AUTHENTICATE', payload: { isAuthenticated: true, masterPassword } });
+
+      dispatch({
+        type: "AUTHENTICATE",
+        payload: { isAuthenticated: true, masterPassword },
+      });
+
+      // Sync authentication with passwordStore using utility
+      try {
+        await syncAuthentication(true, masterPassword);
+      } catch (error) {
+        console.warn("Failed to sync passwordStore authentication:", error);
+      }
+
       return true;
     } catch (error) {
-      dispatch({ type: 'SET_ERROR', payload: 'Failed to authenticate' });
+      dispatch({ type: "SET_ERROR", payload: "Failed to authenticate" });
       return false;
     } finally {
-      dispatch({ type: 'SET_LOADING', payload: false });
+      dispatch({ type: "SET_LOADING", payload: false });
     }
   };
 
   const lockApp = () => {
-    dispatch({ type: 'LOCK_APP' });
+    dispatch({ type: "LOCK_APP" });
   };
 
   const loadUserData = async (masterPassword: string) => {
     try {
       // Load passwords
       const passwords = await loadPasswords(masterPassword);
-      dispatch({ type: 'SET_PASSWORDS', payload: passwords });
+      dispatch({ type: "SET_PASSWORDS", payload: passwords });
 
       // Load secure notes
       const secureNotes = await loadSecureNotes(masterPassword);
-      dispatch({ type: 'SET_SECURE_NOTES', payload: secureNotes });
+      dispatch({ type: "SET_SECURE_NOTES", payload: secureNotes });
 
       // Load settings
       const settings = await loadSettings();
       if (settings) {
-        dispatch({ type: 'UPDATE_SETTINGS', payload: settings });
+        dispatch({ type: "UPDATE_SETTINGS", payload: settings });
       }
     } catch (error) {
-      throw new Error('Failed to load user data');
+      throw new Error("Failed to load user data");
     }
   };
 
@@ -233,23 +273,23 @@ export function AppProvider({ children }: AppProviderProps) {
   // Data persistence functions
   const saveData = async () => {
     if (!state.isAuthenticated || !state.masterPassword) {
-      throw new Error('Not authenticated - please log in again');
+      throw new Error("Not authenticated - please log in again");
     }
-    
+
     try {
       await Promise.all([
         savePasswords(state.passwords, state.masterPassword),
         saveSecureNotes(state.secureNotes, state.masterPassword),
-        saveSettings(state.settings)
+        saveSettings(state.settings),
       ]);
     } catch (error) {
-      console.error('Failed to save data:', error);
+      console.error("Failed to save data:", error);
       throw error;
     }
   };
 
   const addPassword = async (password: any) => {
-    dispatch({ type: 'ADD_PASSWORD', payload: password });
+    dispatch({ type: "ADD_PASSWORD", payload: password });
     if (state.masterPassword) {
       const newPasswords = [...state.passwords, password];
       await savePasswords(newPasswords, state.masterPassword);
@@ -257,23 +297,25 @@ export function AppProvider({ children }: AppProviderProps) {
   };
 
   const updatePassword = async (password: any) => {
-    dispatch({ type: 'UPDATE_PASSWORD', payload: password });
+    dispatch({ type: "UPDATE_PASSWORD", payload: password });
     if (state.masterPassword) {
-      const updatedPasswords = state.passwords.map(p => p.id === password.id ? password : p);
+      const updatedPasswords = state.passwords.map((p) =>
+        p.id === password.id ? password : p
+      );
       await savePasswords(updatedPasswords, state.masterPassword);
     }
   };
 
   const deletePassword = async (id: string) => {
-    dispatch({ type: 'DELETE_PASSWORD', payload: id });
+    dispatch({ type: "DELETE_PASSWORD", payload: id });
     if (state.masterPassword) {
-      const filteredPasswords = state.passwords.filter(p => p.id !== id);
+      const filteredPasswords = state.passwords.filter((p) => p.id !== id);
       await savePasswords(filteredPasswords, state.masterPassword);
     }
   };
 
   const addSecureNote = async (note: any) => {
-    dispatch({ type: 'ADD_SECURE_NOTE', payload: note });
+    dispatch({ type: "ADD_SECURE_NOTE", payload: note });
     if (state.masterPassword) {
       const newNotes = [...state.secureNotes, note];
       await saveSecureNotes(newNotes, state.masterPassword);
@@ -281,24 +323,26 @@ export function AppProvider({ children }: AppProviderProps) {
   };
 
   const updateSecureNote = async (note: any) => {
-    dispatch({ type: 'UPDATE_SECURE_NOTE', payload: note });
+    dispatch({ type: "UPDATE_SECURE_NOTE", payload: note });
     if (state.masterPassword) {
-      const updatedNotes = state.secureNotes.map(n => n.id === note.id ? note : n);
+      const updatedNotes = state.secureNotes.map((n) =>
+        n.id === note.id ? note : n
+      );
       await saveSecureNotes(updatedNotes, state.masterPassword);
     }
   };
 
   const deleteSecureNote = async (id: string) => {
-    dispatch({ type: 'DELETE_SECURE_NOTE', payload: id });
+    dispatch({ type: "DELETE_SECURE_NOTE", payload: id });
     if (state.masterPassword) {
-      const filteredNotes = state.secureNotes.filter(n => n.id !== id);
+      const filteredNotes = state.secureNotes.filter((n) => n.id !== id);
       await saveSecureNotes(filteredNotes, state.masterPassword);
     }
   };
 
   const updateAppSettings = async (newSettings: Partial<UserSettings>) => {
     const updatedSettings = { ...state.settings, ...newSettings };
-    dispatch({ type: 'UPDATE_SETTINGS', payload: newSettings });
+    dispatch({ type: "UPDATE_SETTINGS", payload: newSettings });
     await saveSettings(updatedSettings);
   };
 
@@ -320,16 +364,14 @@ export function AppProvider({ children }: AppProviderProps) {
   };
 
   return (
-    <AppContext.Provider value={contextValue}>
-      {children}
-    </AppContext.Provider>
+    <AppContext.Provider value={contextValue}>{children}</AppContext.Provider>
   );
 }
 
 export function useAppContext() {
   const context = useContext(AppContext);
   if (context === undefined) {
-    throw new Error('useAppContext must be used within an AppProvider');
+    throw new Error("useAppContext must be used within an AppProvider");
   }
   return context;
 }

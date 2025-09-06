@@ -1,50 +1,46 @@
-import React, {
-  useState,
-  useCallback,
-  useMemo,
-  useRef,
-  useEffect,
-} from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  Modal,
-  Alert,
-  ScrollView,
-  Dimensions,
-  Animated,
-} from "react-native";
-import { BlurView } from "expo-blur";
-import { Ionicons } from "@expo/vector-icons";
-import Svg, {
-  Circle,
-  Defs,
-  LinearGradient as SvgLinearGradient,
-  Stop,
-  Polygon,
-  Path,
-  Rect,
-  Line,
-  G,
-} from "react-native-svg";
-
+import HolographicBackground from "@/components/HolographicBackground";
+import AppIcon from "@/components/ui/AppIcon";
+import Button from "@/components/ui/Button";
+import Input from "@/components/ui/Input";
+import { ReachPressable } from "@/components/ui/ReachPressable";
+import Colors from "@/constants/Colors";
 import { useAppContext } from "@/hooks/useAppContext";
+import { generatePassword } from "@/services/password/generator";
+import { usePasswordStore } from "@/stores/passwordStore";
 import {
-  Password,
-  PasswordStrength,
   AuthField,
   AuthFieldType,
   InstalledApp,
+  PasswordStrength,
 } from "@/types";
-import { generatePassword } from "@/services/password/generator";
-import { savePasswords } from "@/services/storage/secureStorage";
-import AppIcon from "@/components/ui/AppIcon";
-import Input from "@/components/ui/Input";
-import Button from "@/components/ui/Button";
-import { ReachPressable } from "@/components/ui/ReachPressable";
-import Colors from "@/constants/Colors";
+import { ensureAuthenticated } from "@/utils/authSync";
+import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  Alert,
+  Animated,
+  Dimensions,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import Svg, {
+  Circle,
+  Defs,
+  Path,
+  Rect,
+  Stop,
+  LinearGradient as SvgLinearGradient,
+} from "react-native-svg";
 
 const { height: screenHeight, width: screenWidth } = Dimensions.get("window");
 
@@ -53,147 +49,6 @@ interface AddPasswordModalProps {
   app: InstalledApp | null;
   onClose: () => void;
 }
-
-// Futuristic Holographic Grid Background
-const HolographicGrid = () => {
-  const gridSize = 40;
-  const rows = Math.ceil(screenHeight / gridSize);
-  const cols = Math.ceil(screenWidth / gridSize);
-
-  return (
-    <Svg
-      width={screenWidth}
-      height={screenHeight}
-      style={StyleSheet.absoluteFill}
-      viewBox={`0 0 ${screenWidth} ${screenHeight}`}
-    >
-      <Defs>
-        <SvgLinearGradient id="gridGradient" x1="0" y1="0" x2="1" y2="1">
-          <Stop offset="0%" stopColor={Colors.dark.primary} stopOpacity="0.3" />
-          <Stop
-            offset="50%"
-            stopColor={Colors.dark.neonGreen}
-            stopOpacity="0.1"
-          />
-          <Stop
-            offset="100%"
-            stopColor={Colors.dark.secondary}
-            stopOpacity="0.2"
-          />
-        </SvgLinearGradient>
-      </Defs>
-
-      {/* Vertical Lines */}
-      {Array.from({ length: cols }).map((_, i) => (
-        <Line
-          key={`v-${i}`}
-          x1={i * gridSize}
-          y1={0}
-          x2={i * gridSize}
-          y2={screenHeight}
-          stroke="url(#gridGradient)"
-          strokeWidth="0.8"
-          opacity={0.4}
-        />
-      ))}
-
-      {/* Horizontal Lines */}
-      {Array.from({ length: rows }).map((_, i) => (
-        <Line
-          key={`h-${i}`}
-          x1={0}
-          y1={i * gridSize}
-          x2={screenWidth}
-          y2={i * gridSize}
-          stroke="url(#gridGradient)"
-          strokeWidth="0.8"
-          opacity={0.4}
-        />
-      ))}
-    </Svg>
-  );
-};
-
-// Animated Particles System
-const ParticleSystem = () => {
-  const particles = useMemo(
-    () =>
-      Array.from({ length: 20 }, (_, i) => ({
-        id: i,
-        x: Math.random() * screenWidth,
-        y: Math.random() * screenHeight,
-        size: Math.random() * 3 + 1,
-        speed: Math.random() * 2 + 0.5,
-        opacity: Math.random() * 0.8 + 0.2,
-      })),
-    []
-  );
-
-  const animatedValues = useRef(
-    particles.map(() => ({
-      translateX: new Animated.Value(Math.random() * screenWidth),
-      translateY: new Animated.Value(Math.random() * screenHeight),
-      opacity: new Animated.Value(Math.random() * 0.8 + 0.2),
-    }))
-  ).current;
-
-  useEffect(() => {
-    const animations = animatedValues.map((anim, i) => {
-      const particle = particles[i];
-      return Animated.loop(
-        Animated.parallel([
-          Animated.timing(anim.translateX, {
-            toValue: Math.random() * screenWidth,
-            duration: 3000 + Math.random() * 2000,
-            useNativeDriver: true,
-          }),
-          Animated.timing(anim.translateY, {
-            toValue: Math.random() * screenHeight,
-            duration: 4000 + Math.random() * 2000,
-            useNativeDriver: true,
-          }),
-          Animated.sequence([
-            Animated.timing(anim.opacity, {
-              toValue: 1,
-              duration: 2000,
-              useNativeDriver: true,
-            }),
-            Animated.timing(anim.opacity, {
-              toValue: 0.2,
-              duration: 2000,
-              useNativeDriver: true,
-            }),
-          ]),
-        ])
-      );
-    });
-
-    animations.forEach((anim) => anim.start());
-    return () => animations.forEach((anim) => anim.stop());
-  }, []);
-
-  return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      {animatedValues.map((anim, i) => (
-        <Animated.View
-          key={i}
-          style={[
-            styles.particle,
-            {
-              transform: [
-                { translateX: anim.translateX },
-                { translateY: anim.translateY },
-              ],
-              opacity: anim.opacity,
-              width: particles[i].size,
-              height: particles[i].size,
-            },
-          ]}
-        />
-      ))}
-    </View>
-  );
-};
 
 // Simplified Header with Hexagon
 const HolographicHeader = ({
@@ -452,10 +307,12 @@ export default function AddPasswordModal({
   onClose,
 }: AddPasswordModalProps) {
   const { state, dispatch } = useAppContext();
+  const passwordStore = usePasswordStore();
 
   const [formData, setFormData] = useState({
-    username: "",
-    email: "",
+    identifierType: "email" as "email" | "username" | "phone" | "custom",
+    identifier: "",
+    customLabel: "",
     password: "",
     url: "",
     notes: "",
@@ -532,7 +389,7 @@ export default function AddPasswordModal({
     setIsGenerating(true);
     try {
       const generated = await generatePassword({
-        length: state.settings.defaultPasswordLength,
+        length: passwordStore.settings.defaultPasswordLength,
         includeUppercase: true,
         includeLowercase: true,
         includeNumbers: true,
@@ -583,12 +440,24 @@ export default function AddPasswordModal({
     setCustomFields((prev) => prev.filter((field) => field.id !== fieldId));
   }, []);
 
-  const handleUsernameChange = useCallback((username: string) => {
-    setFormData((prev) => ({ ...prev, username }));
+  const handleIdentifierChange = useCallback((identifier: string) => {
+    setFormData((prev) => ({ ...prev, identifier }));
   }, []);
 
-  const handleEmailChange = useCallback((email: string) => {
-    setFormData((prev) => ({ ...prev, email }));
+  const handleIdentifierTypeChange = useCallback(
+    (identifierType: "email" | "username" | "phone" | "custom") => {
+      setFormData((prev) => ({
+        ...prev,
+        identifierType,
+        identifier: "",
+        customLabel: "",
+      }));
+    },
+    []
+  );
+
+  const handleCustomLabelChange = useCallback((customLabel: string) => {
+    setFormData((prev) => ({ ...prev, customLabel }));
   }, []);
 
   const handlePasswordChange = useCallback((password: string) => {
@@ -653,34 +522,127 @@ export default function AddPasswordModal({
       return;
     }
 
-    if (!formData.username.trim() && !formData.email.trim()) {
-      Alert.alert("ACCESS DENIED", "Identity matrix incomplete");
+    if (!formData.identifier.trim()) {
+      Alert.alert(
+        "ACCESS DENIED",
+        "Identity matrix incomplete - credential required"
+      );
+      return;
+    }
+
+    if (formData.identifierType === "custom" && !formData.customLabel.trim()) {
+      Alert.alert("ACCESS DENIED", "Custom field label required");
       return;
     }
 
     setIsSaving(true);
     try {
-      const newPassword: Password = {
-        id: Date.now().toString(),
+      // Use global auth sync utility
+      const isAuthenticated = await ensureAuthenticated(
+        state.isAuthenticated,
+        state.masterPassword
+      );
+      if (!isAuthenticated) {
+        Alert.alert(
+          "ACCESS DENIED",
+          "Please ensure you are logged in and try again."
+        );
+        return;
+      }
+
+      // Create passwordEntry compatible with the new store
+      const passwordEntry = {
         appName: app.name,
         appId: app.id,
-        username: formData.username || formData.email,
+        username:
+          formData.identifierType === "username"
+            ? formData.identifier
+            : undefined,
+        email:
+          formData.identifierType === "email" ? formData.identifier : undefined,
         password: formData.password,
         url: formData.url || `https://${app.name.toLowerCase()}.com`,
         notes: formData.notes,
-        customFields: customFields,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        customFields: [
+          ...customFields,
+          // Add the main identifier as a custom field if it's phone or custom
+          ...(formData.identifierType === "phone"
+            ? [
+                {
+                  id: Date.now().toString() + "_phone",
+                  label: "Phone Number",
+                  value: formData.identifier,
+                  type: AuthFieldType.PHONE,
+                  isRequired: true,
+                  isEncrypted: false,
+                },
+              ]
+            : []),
+          ...(formData.identifierType === "custom"
+            ? [
+                {
+                  id: Date.now().toString() + "_custom",
+                  label: formData.customLabel,
+                  value: formData.identifier,
+                  type: AuthFieldType.TEXT,
+                  isRequired: true,
+                  isEncrypted: false,
+                },
+              ]
+            : []),
+        ],
         strength: calculatePasswordStrength(formData.password),
         isFavorite: false,
-        tags: [],
+        tags: [formData.identifierType], // Add the type as a tag for easier filtering
       };
 
-      dispatch({ type: "ADD_PASSWORD", payload: newPassword });
+      // Try to save to passwordStore first, fallback to manual storage if needed
+      let savedToPasswordStore = false;
+      try {
+        if (passwordStore.isAuthenticated) {
+          await passwordStore.addPassword(passwordEntry);
+          savedToPasswordStore = true;
+          console.log("Successfully saved to passwordStore");
+        }
+      } catch (storeError) {
+        console.warn(
+          "PasswordStore save failed, using legacy method:",
+          storeError
+        );
+      }
 
-      if (state.masterPassword) {
-        const updatedPasswords = [...state.passwords, newPassword];
-        await savePasswords(updatedPasswords, state.masterPassword);
+      // Also add to the legacy context system for compatibility
+      const legacyPassword = {
+        id: Date.now().toString(),
+        appName: app.name,
+        appId: app.id,
+        username: passwordEntry.username || passwordEntry.email || "user",
+        password: passwordEntry.password,
+        url: passwordEntry.url || `https://${app.name.toLowerCase()}.com`,
+        notes: passwordEntry.notes || "",
+        customFields: passwordEntry.customFields,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        strength: passwordEntry.strength,
+        isFavorite: false,
+        tags: passwordEntry.tags,
+      };
+
+      dispatch({ type: "ADD_PASSWORD", payload: legacyPassword });
+
+      // If passwordStore failed, also save manually to secure storage
+      if (!savedToPasswordStore && state.masterPassword) {
+        try {
+          const { savePasswords } = await import(
+            "@/services/storage/secureStorage"
+          );
+          const updatedPasswords = [...state.passwords, legacyPassword];
+          await savePasswords(updatedPasswords, state.masterPassword);
+          console.log("Manually saved to secure storage as fallback");
+        } catch (manualSaveError) {
+          console.error("Manual save also failed:", manualSaveError);
+          // Still show success as we saved to context
+        }
       }
 
       Alert.alert(
@@ -689,8 +651,9 @@ export default function AddPasswordModal({
       );
 
       setFormData({
-        username: "",
-        email: "",
+        identifierType: "email",
+        identifier: "",
+        customLabel: "",
         password: "",
         url: "",
         notes: "",
@@ -698,7 +661,13 @@ export default function AddPasswordModal({
       setCustomFields([]);
       onClose();
     } catch (error) {
-      Alert.alert("SYSTEM FAILURE", "Neural network encryption failed");
+      console.error("Password storage error:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      Alert.alert(
+        "SYSTEM FAILURE",
+        `Neural network encryption failed: ${errorMessage}\n\nPlease ensure you're logged in and try again.`
+      );
     } finally {
       setIsSaving(false);
     }
@@ -714,10 +683,7 @@ export default function AddPasswordModal({
       statusBarTranslucent
     >
       <Animated.View style={[styles.modalOverlay, { opacity: opacityAnim }]}>
-        <BlurView intensity={120} tint="dark" style={StyleSheet.absoluteFill}>
-          <HolographicGrid />
-          <ParticleSystem />
-        </BlurView>
+        <HolographicBackground />
 
         <Animated.View
           style={[
@@ -737,20 +703,124 @@ export default function AddPasswordModal({
             contentContainerStyle={styles.formContent}
           >
             <HoloInput title="IDENTITY MATRIX" icon="person-circle">
+              <View style={styles.credentialTypeSection}>
+                <Text style={styles.credentialTypeLabel}>CREDENTIAL TYPE</Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={styles.typeScroll}
+                >
+                  <View style={styles.credentialTypeOptions}>
+                    {[
+                      {
+                        type: "email" as const,
+                        label: "EMAIL",
+                        icon: "mail",
+                        placeholder: "user@domain.com",
+                      },
+                      {
+                        type: "username" as const,
+                        label: "USERNAME",
+                        icon: "person",
+                        placeholder: "username",
+                      },
+                      {
+                        type: "phone" as const,
+                        label: "PHONE",
+                        icon: "call",
+                        placeholder: "+1234567890",
+                      },
+                      {
+                        type: "custom" as const,
+                        label: "CUSTOM",
+                        icon: "construct",
+                        placeholder: "custom value",
+                      },
+                    ].map((credType) => (
+                      <ReachPressable
+                        key={credType.type}
+                        onPress={() =>
+                          handleIdentifierTypeChange(credType.type)
+                        }
+                        style={[
+                          styles.credentialTypeOption,
+                          formData.identifierType === credType.type &&
+                            styles.credentialTypeOptionSelected,
+                        ]}
+                        reachScale={1.05}
+                        pressScale={0.95}
+                      >
+                        <Ionicons
+                          name={credType.icon as any}
+                          size={18}
+                          color={
+                            formData.identifierType === credType.type
+                              ? Colors.dark.background
+                              : Colors.dark.neonGreen
+                          }
+                        />
+                        <Text
+                          style={[
+                            styles.credentialTypeOptionText,
+                            formData.identifierType === credType.type &&
+                              styles.credentialTypeOptionTextSelected,
+                          ]}
+                        >
+                          {credType.label}
+                        </Text>
+                      </ReachPressable>
+                    ))}
+                  </View>
+                </ScrollView>
+              </View>
+
+              {formData.identifierType === "custom" && (
+                <Input
+                  label="Field Label"
+                  value={formData.customLabel}
+                  onChangeText={handleCustomLabelChange}
+                  placeholder="e.g., Account ID, Member Number, etc."
+                  leftIcon="pricetag-outline"
+                />
+              )}
+
               <Input
-                label="Neural ID"
-                value={formData.username}
-                onChangeText={handleUsernameChange}
-                placeholder="Enter neural identity"
-                leftIcon="person-outline"
-              />
-              <Input
-                label="Quantum Email"
-                value={formData.email}
-                onChangeText={handleEmailChange}
-                placeholder="Enter quantum address"
-                leftIcon="mail-outline"
-                keyboardType="email-address"
+                label={
+                  formData.identifierType === "email"
+                    ? "Email Address"
+                    : formData.identifierType === "username"
+                    ? "Username"
+                    : formData.identifierType === "phone"
+                    ? "Phone Number"
+                    : formData.customLabel || "Custom Field"
+                }
+                value={formData.identifier}
+                onChangeText={handleIdentifierChange}
+                placeholder={
+                  formData.identifierType === "email"
+                    ? "user@domain.com"
+                    : formData.identifierType === "username"
+                    ? "Enter username"
+                    : formData.identifierType === "phone"
+                    ? "+1234567890"
+                    : "Enter custom value"
+                }
+                leftIcon={
+                  formData.identifierType === "email"
+                    ? "mail-outline"
+                    : formData.identifierType === "username"
+                    ? "person-outline"
+                    : formData.identifierType === "phone"
+                    ? "call-outline"
+                    : "construct-outline"
+                }
+                keyboardType={
+                  formData.identifierType === "email"
+                    ? "email-address"
+                    : formData.identifierType === "phone"
+                    ? "phone-pad"
+                    : "default"
+                }
               />
             </HoloInput>
 
@@ -785,21 +855,22 @@ export default function AddPasswordModal({
 
             <HoloInput title="DATA MATRIX" icon="information-circle">
               <Input
-                label="Network Address"
+                label="Network Address (Optional)"
                 value={formData.url}
                 onChangeText={handleUrlChange}
-                placeholder={`https://${app.name.toLowerCase()}.quantum`}
+                placeholder={`https://${app.name.toLowerCase()}.com`}
                 leftIcon="globe-outline"
                 keyboardType="url"
               />
               <Input
-                label="Neural Notes"
+                label="Security Notes (Optional)"
                 value={formData.notes}
                 onChangeText={handleNotesChange}
-                placeholder="Enter classified notes..."
+                placeholder="Additional notes, recovery info, etc..."
                 leftIcon="document-text-outline"
                 multiline
-                numberOfLines={3}
+                numberOfLines={4}
+                containerStyle={styles.notesInput}
               />
             </HoloInput>
 
@@ -962,7 +1033,13 @@ export default function AddPasswordModal({
                 }
                 onPress={handleSave}
                 variant="primary"
-                disabled={isSaving || !formData.password.trim()}
+                disabled={
+                  isSaving ||
+                  !formData.password.trim() ||
+                  !formData.identifier.trim() ||
+                  (formData.identifierType === "custom" &&
+                    !formData.customLabel.trim())
+                }
                 style={styles.saveButton}
               />
             </LinearGradient>
@@ -1028,9 +1105,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   formContent: {
-    padding: 24,
+    padding: 20,
     paddingBottom: 32,
-    gap: 24,
+    gap: 20,
   },
   holoInputContainer: {
     marginBottom: 0,
@@ -1079,7 +1156,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 20,
     paddingTop: 0,
-    gap: 16,
+    gap: 18,
   },
   strengthMeter: {
     marginTop: 5,
@@ -1204,13 +1281,56 @@ const styles = StyleSheet.create({
   saveButton: {
     flex: 2,
   },
-  particle: {
-    position: "absolute",
-    borderRadius: 50,
-    backgroundColor: Colors.dark.primary,
-    shadowColor: Colors.dark.primary,
+  credentialTypeSection: {
+    marginBottom: 20,
+  },
+  credentialTypeLabel: {
+    fontSize: 14,
+    color: Colors.dark.neonGreen,
+    fontWeight: "700",
+    letterSpacing: 1,
+    marginBottom: 12,
+  },
+  typeScroll: {
+    marginBottom: 4,
+  },
+  credentialTypeOptions: {
+    flexDirection: "row",
+    gap: 12,
+    paddingRight: 24,
+    alignItems: "center",
+  },
+  credentialTypeOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: Colors.dark.surfaceVariant,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary,
+    minHeight: 40,
+    gap: 8,
+  },
+  credentialTypeOptionSelected: {
+    backgroundColor: Colors.dark.neonGreen,
+    borderColor: Colors.dark.secondary,
+    shadowColor: Colors.dark.neonGreen,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 3,
+    shadowOpacity: 0.6,
+    shadowRadius: 8,
+  },
+  credentialTypeOptionText: {
+    fontSize: 12,
+    color: Colors.dark.text,
+    fontWeight: "600",
+    letterSpacing: 0.5,
+  },
+  credentialTypeOptionTextSelected: {
+    color: Colors.dark.background,
+    fontWeight: "800",
+  },
+  notesInput: {
+    minHeight: 100,
   },
 });

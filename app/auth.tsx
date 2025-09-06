@@ -9,8 +9,8 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSequence,
-  withTiming,
   withSpring,
+  withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, {
@@ -20,10 +20,10 @@ import Svg, {
   LinearGradient as SvgLinearGradient,
 } from "react-native-svg";
 
-import Colors from "@/constants/Colors";
-import { useAppContext } from "@/hooks/useAppContext";
 import PinKeypad from "@/components/ui/PinKeypad";
 import { ReachPressable } from "@/components/ui/ReachPressable";
+import Colors from "@/constants/Colors";
+import { useAppContext } from "@/hooks/useAppContext";
 import { loadSettings } from "@/services/storage/secureStorage";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -161,10 +161,10 @@ function AuthScreen() {
             await LocalAuthentication.supportedAuthenticationTypesAsync();
           setBiometricType(types);
           setShowBiometric(true);
-          // Auto-trigger biometric authentication on load
+          // Auto-trigger biometric authentication immediately
           setTimeout(() => {
             handleBiometricAuth();
-          }, 800);
+          }, 300);
         } else {
           // Hardware available but no biometrics enrolled
           setShowBiometric(false);
@@ -218,18 +218,19 @@ function AuthScreen() {
 
     try {
       const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: "Unlock your Secure Vault",
+        promptMessage: "Unlock your Passport",
         biometricsSecurityLevel: "strong",
         cancelLabel: "Use PIN",
         fallbackLabel: "Enter PIN",
+        disableDeviceFallback: false,
       });
 
       if (result.success) {
         // Biometric authentication successful - proceed to app
         router.replace("/(tabs)");
       } else if (
-        result.error === "UserCancel" ||
-        result.error === "UserFallback"
+        result.error?.toString() === "UserCancel" ||
+        result.error?.toString() === "UserFallback"
       ) {
         // User cancelled or chose to use PIN - show PIN input
         setShowBiometric(false);
@@ -251,7 +252,8 @@ function AuthScreen() {
       setPin(newPin);
 
       if (newPin.length === 4) {
-        setTimeout(() => validatePin(newPin), 200);
+        // Immediately validate PIN when complete
+        setTimeout(() => validatePin(newPin), 50);
       }
     }
   };
@@ -283,7 +285,7 @@ function AuthScreen() {
         withTiming(0, { duration: 50 })
       );
 
-      setTimeout(() => setPin(""), 500);
+      setTimeout(() => setPin(""), 300);
     }
   };
 

@@ -734,11 +734,6 @@ const SpaceWelcome = React.memo(() => {
   return (
     <View style={styles.spaceWelcomeContainer}>
       {/* Animated Background Elements */}
-      <View style={styles.welcomeBackground}>
-        <Animated.View style={[styles.welcomeOrb1, rotateStyle]} />
-        <Animated.View style={[styles.welcomeOrb2, scaleStyle]} />
-        <View style={styles.welcomeGrid} />
-      </View>
 
       {/* Main Content */}
       <Animated.View style={[styles.welcomeContent, glowStyle]}>
@@ -750,16 +745,6 @@ const SpaceWelcome = React.memo(() => {
           ]}
           style={styles.welcomeGradient}
         >
-          {/* Hero Icon */}
-          <Animated.View style={[styles.welcomeIconContainer, scaleStyle]}>
-            <LinearGradient
-              colors={[Colors.dark.neonGreen, Colors.dark.primary]}
-              style={styles.welcomeIcon}
-            >
-              <Ionicons name="shield-checkmark" size={64} color="#0a0a0b" />
-            </LinearGradient>
-          </Animated.View>
-
           {/* Welcome Text */}
           <View style={styles.welcomeTextContainer}>
             <Text style={styles.welcomeTitle}>🚀 SECURE VAULT</Text>

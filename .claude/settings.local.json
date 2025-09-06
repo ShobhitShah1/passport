@@ -61,7 +61,8 @@
       "Read(/D:\\passport\\stores/**)",
       "Read(/D:\\passport\\app\\(tabs)/**)",
       "Read(/D:\\passport\\app\\(tabs)/**)",
-      "Read(/D:\\passport\\app\\(tabs)/**)"
+      "Read(/D:\\passport\\app\\(tabs)/**)",
+      "Bash(tail:*)"
     ],
     "deny": [],
     "ask": []

@@ -4000,6 +4000,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"expo-document-picker@npm:~13.1.6":
+  version: 13.1.6
+  resolution: "expo-document-picker@npm:13.1.6"
+  peerDependencies:
+    expo: "*"
+  checksum: 10c0/0800000360e0f0f123f3097b43eb13bf7f0a5a8a18db7a2ae6ce05ee983138d2242d9391b69a25f45af08347e7c1f773ca158e4b74eb71da23cb6b429d8cfee6
+  languageName: node
+  linkType: hard
+
 "expo-file-system@npm:~18.1.11":
   version: 18.1.11
   resolution: "expo-file-system@npm:18.1.11"
@@ -4073,6 +4082,16 @@ __metadata:
   peerDependencies:
     expo: "*"
   checksum: 10c0/b85717475311b2fb4f415a7db332187523076836d2757837b94652ea4f1d512bf531a05ac440117f423f43bb185c8a52d397609fb402e360b0e77fb4cf231aa6
+  languageName: node
+  linkType: hard
+
+"expo-media-library@npm:~17.1.7":
+  version: 17.1.7
+  resolution: "expo-media-library@npm:17.1.7"
+  peerDependencies:
+    expo: "*"
+    react-native: "*"
+  checksum: 10c0/4eb67db1b8a97782c916a8ee16ebf1264e4d444c8b2ffc73baa6a1642a4d9319e74a3995684bb4d4dabd8e93256a636ea79a79fb10e31fc019b43c76178afdd6
   languageName: node
   linkType: hard
 
@@ -6703,11 +6722,14 @@ __metadata:
     expo-clipboard: "npm:~7.1.5"
     expo-crypto: "npm:~14.1.5"
     expo-device: "npm:~7.1.4"
+    expo-document-picker: "npm:~13.1.6"
+    expo-file-system: "npm:~18.1.11"
     expo-font: "npm:~13.3.2"
     expo-haptics: "npm:~14.1.4"
     expo-linear-gradient: "npm:~14.1.5"
     expo-linking: "npm:~7.1.7"
     expo-local-authentication: "npm:~16.0.5"
+    expo-media-library: "npm:~17.1.7"
     expo-router: "npm:~5.1.5"
     expo-secure-store: "npm:~14.2.4"
     expo-splash-screen: "npm:~0.30.10"

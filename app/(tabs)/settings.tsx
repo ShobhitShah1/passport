@@ -1,18 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
-import * as LocalAuthentication from "expo-local-authentication";
-import React, { useEffect, useMemo, useState } from "react";
-import {
-  Alert,
-  ScrollView,
-  Share,
-  StyleSheet,
-  Switch,
-  Text,
-  View,
-} from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Svg, { Polygon } from "react-native-svg";
 import { ReachPressable } from "@/components/ui/ReachPressable";
 import Colors from "@/constants/Colors";
 import { useAppContext } from "@/hooks/useAppContext";
@@ -24,7 +9,28 @@ import {
 } from "@/services/storage/secureStorage";
 import { usePasswordStore } from "@/stores/passwordStore";
 import { UserSettings } from "@/types";
-import { ensureAuthenticated } from "@/utils/authSync";
+import { ensureAuthenticated, syncAuthentication } from "@/utils/authSync";
+import { Ionicons } from "@expo/vector-icons";
+import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system";
+import { LinearGradient } from "expo-linear-gradient";
+import * as LocalAuthentication from "expo-local-authentication";
+import * as MediaLibrary from "expo-media-library";
+import { router } from "expo-router";
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  Alert,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Svg, { Polygon } from "react-native-svg";
 
 const TwinklingStar = ({ style, size }: { style: object; size: number }) => {
   return (
@@ -94,8 +100,14 @@ const FloatingHexagon = ({ style }: { style: object }) => {
 };
 
 export default function SettingsTabScreen() {
-  const { state, dispatch, saveData, updateSettings, lockCountdown } =
-    useAppContext();
+  const {
+    state,
+    dispatch,
+    saveData,
+    updateSettings,
+    lockCountdown,
+    loadUserData,
+  } = useAppContext();
   const {
     passwords,
     secureNotes,
@@ -111,6 +123,15 @@ export default function SettingsTabScreen() {
     notes: 0,
     lastBackup: null as Date | null,
   });
+
+  // Import modal state
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [importPassword, setImportPassword] = useState("");
+  const [importData, setImportData] = useState<{
+    encryptedData: any;
+    stats: any;
+  } | null>(null);
+
   const insets = useSafeAreaInsets();
 
   useEffect(() => {
@@ -134,7 +155,7 @@ export default function SettingsTabScreen() {
     try {
       const isAvailable = await LocalAuthentication.hasHardwareAsync();
       setBiometricAvailable(isAvailable);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error checking biometric availability:", error);
     }
   };
@@ -171,7 +192,7 @@ export default function SettingsTabScreen() {
           }
         ),
       ]);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error updating setting:", error);
       Alert.alert("Error", "Failed to save settings. Please try again.");
     } finally {
@@ -202,7 +223,7 @@ export default function SettingsTabScreen() {
         } else {
           Alert.alert("Authentication Failed", "Please try again.");
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Biometric auth error:", error);
         Alert.alert("Error", "Failed to enable biometric authentication.");
       }
@@ -287,7 +308,7 @@ export default function SettingsTabScreen() {
 
       // You could store this in settings for persistence
       // updateSetting('widgetTheme', theme);
-    } catch (error) {
+    } catch (error: any) {
       Alert.alert("Error", "Failed to update widget theme.");
     }
   };
@@ -302,7 +323,7 @@ export default function SettingsTabScreen() {
 
       // Store in settings for persistence
       // updateSetting('widgetMaxNotes', count);
-    } catch (error) {
+    } catch (error: any) {
       Alert.alert("Error", "Failed to update widget notes count.");
     }
   };
@@ -332,7 +353,6 @@ export default function SettingsTabScreen() {
       const exportData = await exportEncryptedData();
 
       if (exportData) {
-        // Create a more structured export
         const exportFileName = `passport-backup-${
           new Date().toISOString().split("T")[0]
         }.json`;
@@ -348,19 +368,100 @@ export default function SettingsTabScreen() {
           encryptedData: exportData,
         };
 
-        await Share.share({
-          message: JSON.stringify(exportPayload, null, 2),
-          title: "Passport Security Vault Backup",
-        });
+        // Try to save to public external directory
+        let fileUri: string;
+        let locationDescription: string;
+
+        // Check if external directory is available
+        if (FileSystem.StorageAccessFramework) {
+          try {
+            // Request directory access for external storage
+            const permissions =
+              await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+
+            if (permissions.granted) {
+              // Save to external directory (user can access)
+              const fileString = JSON.stringify(exportPayload, null, 2);
+              fileUri = await FileSystem.StorageAccessFramework.createFileAsync(
+                permissions.directoryUri,
+                exportFileName,
+                "application/json"
+              );
+
+              await FileSystem.writeAsStringAsync(fileUri, fileString);
+              locationDescription = "External Storage (Public)";
+            } else {
+              throw new Error("External storage permission denied");
+            }
+          } catch (externalError) {
+            console.log(
+              "External storage failed, trying downloads:",
+              externalError
+            );
+
+            // Fallback: Try to use downloads directory if available
+            try {
+              const downloadsUri =
+                FileSystem.documentDirectory + "../Download/" + exportFileName;
+              await FileSystem.writeAsStringAsync(
+                downloadsUri,
+                JSON.stringify(exportPayload, null, 2)
+              );
+              fileUri = downloadsUri;
+              locationDescription = "Downloads folder";
+            } catch (downloadError) {
+              console.log("Downloads failed, using documents:", downloadError);
+              // Final fallback: app documents
+              fileUri = FileSystem.documentDirectory + exportFileName;
+              await FileSystem.writeAsStringAsync(
+                fileUri,
+                JSON.stringify(exportPayload, null, 2)
+              );
+              locationDescription = "App Documents (private)";
+            }
+          }
+        } else {
+          // For iOS or when StorageAccessFramework is not available
+          fileUri = FileSystem.documentDirectory + exportFileName;
+          await FileSystem.writeAsStringAsync(
+            fileUri,
+            JSON.stringify(exportPayload, null, 2)
+          );
+          locationDescription = "App Documents";
+        }
+
+        // Verify file exists
+        const fileInfo = await FileSystem.getInfoAsync(fileUri);
+        if (!fileInfo.exists) {
+          throw new Error("Export file was not created successfully");
+        }
 
         Alert.alert(
-          "✅ Export Successful",
-          `Exported ${passwords.length} passwords and ${secureNotes.length} notes.\n\nBackup file: ${exportFileName}`
+          "Export Successful",
+          `✅ Backup created successfully!\n\nFile: ${exportFileName}\nLocation: ${locationDescription}\nSize: ${Math.round(
+            fileInfo.size! / 1024
+          )} KB\n\n📊 Contains:\n• ${passwords.length} passwords\n• ${
+            secureNotes.length
+          } secure notes\n• All settings`,
+          [
+            { text: "OK" },
+            {
+              text: "Show Location",
+              onPress: () => {
+                Alert.alert(
+                  "File Location",
+                  locationDescription.includes("private")
+                    ? `Path: ${fileUri}\n\nNote: This is in your app's private folder. To make it accessible:\n• Share the file through other apps\n• Copy to public storage manually`
+                    : `Your backup file is now in your device's ${locationDescription}.\n\nYou can access it through:\n• File Manager app\n• Downloads folder\n• Any file browser`
+                );
+              },
+            },
+          ]
         );
       } else {
         Alert.alert(
           "Export Error",
-          "Failed to export data. No data found or encryption error."
+          "Failed to export data. No data found or encryption error?."
         );
       }
     } catch (error: any) {
@@ -389,74 +490,141 @@ export default function SettingsTabScreen() {
   };
 
   const selectImportFile = async () => {
-    // For now, use a simple text input approach
-    Alert.prompt(
-      "Import Backup Data",
-      "Paste your exported backup JSON data:",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Import",
-          onPress: (backupData) => {
-            if (backupData) {
-              parseImportData(backupData);
-            }
-          },
-        },
-      ],
-      "plain-text"
-    );
+    try {
+      console.log("Starting file selection...");
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ["application/json", "text/plain", "*/*"], // Allow more file types
+        copyToCacheDirectory: true, // Ensure we can read the file
+      });
+
+      console.log("DocumentPicker result:", result);
+
+      if (result.canceled) {
+        console.log("File selection was canceled");
+        return;
+      }
+
+      // Handle both old and new DocumentPicker API
+      let fileUri: string;
+      if (result.assets && result.assets.length > 0) {
+        // New API format
+        fileUri = result.assets[0].uri;
+        console.log("Using new API format, file URI:", fileUri);
+      } else if ((result as any).uri) {
+        // Old API format fallback
+        fileUri = (result as any).uri;
+        console.log("Using old API format, file URI:", fileUri);
+      } else {
+        throw new Error("No file selected or invalid result format");
+      }
+
+      console.log("Reading file from:", fileUri);
+      const backupData = await FileSystem.readAsStringAsync(fileUri);
+      console.log("File data length:", backupData.length);
+      console.log("File data preview:", backupData.substring(0, 200) + "...");
+
+      parseImportData(backupData);
+    } catch (error: any) {
+      console.error("Error selecting import file:", error);
+      Alert.alert(
+        "Import Error",
+        `Failed to read the backup file.\n\nError: ${
+          error?.message || "" || error
+        }\n\nPlease ensure you're selecting a valid JSON backup file.`
+      );
+    }
   };
 
   const parseImportData = (backupData: string) => {
     try {
+      console.log("Parsing import data...");
       const importPayload = JSON.parse(backupData);
+      console.log("Parsed payload structure:", Object.keys(importPayload));
 
-      // Check if it's a valid Passport backup
+      // Check if it's a valid Passport backup (new format)
       if (
         importPayload.app === "Passport Security Vault" &&
         importPayload.encryptedData
       ) {
+        console.log("Detected new Passport backup format");
+        console.log("Data stats:", importPayload.dataStats);
+        setIsLoading(true); // Set loading when showing password prompt
         promptMasterPasswordForImport(
           importPayload.encryptedData,
           importPayload.dataStats
         );
-      } else if (typeof importPayload === "string" || importPayload.passwords) {
-        // Legacy format or direct encrypted data
+      } else if (importPayload.passwords || importPayload.secureNotes) {
+        // Direct encrypted data format (from exportEncryptedData function)
+        console.log("Detected direct encrypted data format");
+        setIsLoading(true); // Set loading when showing password prompt
+        promptMasterPasswordForImport(backupData, {
+          passwords: importPayload.passwords ? "encrypted" : 0,
+          notes: importPayload.secureNotes ? "encrypted" : 0,
+        });
+      } else if (typeof importPayload === "string") {
+        // Legacy string format
+        console.log("Detected legacy string format");
+        setIsLoading(true); // Set loading when showing password prompt
         promptMasterPasswordForImport(backupData, null);
       } else {
+        console.log("Unknown backup format:", importPayload);
         Alert.alert(
-          "Invalid Data",
-          "Pasted data is not a valid Passport backup."
+          "Invalid Backup File",
+          `This doesn't appear to be a valid Passport backup file.\n\nExpected: Passport Security Vault backup\nFound: ${
+            importPayload.app || "Unknown format"
+          }\n\nPlease select the correct backup file exported from Passport.`
         );
       }
-    } catch (parseError) {
+    } catch (parseError: any) {
+      console.error("Parse error:", parseError);
       Alert.alert(
-        "Invalid Data",
-        "Unable to parse the backup data. Please paste valid JSON backup data."
+        "Invalid File Format",
+        `Unable to parse the backup file. This might not be a valid JSON file.\n\nError: ${
+          parseError?.message || ""
+        }\n\nPlease ensure you're selecting a backup file exported from Passport.`
       );
     }
   };
 
   const promptMasterPasswordForImport = (encryptedData: any, stats: any) => {
-    Alert.prompt(
-      "Import Data",
-      stats
-        ? `Backup contains ${stats.passwords} passwords and ${stats.notes} notes.\n\nEnter the master password used to create this backup:`
-        : "Enter the master password used to create this backup:",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Import",
-          onPress: (masterPassword) => {
-            if (masterPassword) {
-              performImport(encryptedData, masterPassword, stats);
-            }
-          },
-        },
-      ],
-      "secure-text"
-    );
+    console.log("Prompting for master password...");
+    console.log("Stats:", stats);
+
+    // Store the import data and show our custom modal
+    setImportData({ encryptedData, stats });
+    setImportPassword("");
+    setShowPasswordModal(true);
+  };
+
+  const handlePasswordModalCancel = () => {
+    console.log("Import canceled by user");
+    setShowPasswordModal(false);
+    setImportData(null);
+    setImportPassword("");
+    setIsLoading(false);
+  };
+
+  const handlePasswordModalSubmit = () => {
+    console.log("User entered password, length:", importPassword?.length || 0);
+
+    if (importPassword && importPassword.trim() && importData) {
+      setShowPasswordModal(false);
+
+      // Pass the correct data format - importData.encryptedData is already the JSON string from exportEncryptedData
+      const dataToImport =
+        typeof importData.encryptedData === "string"
+          ? importData.encryptedData
+          : JSON.stringify(importData.encryptedData);
+
+      console.log("Data to import type:", typeof dataToImport);
+      console.log("Data preview:", dataToImport.substring(0, 100) + "...");
+
+      performImport(dataToImport, importPassword.trim(), importData.stats);
+      setImportPassword("");
+      setImportData(null);
+    } else {
+      Alert.alert("Error", "Please enter a valid master password.");
+    }
   };
 
   const performImport = async (
@@ -466,42 +634,122 @@ export default function SettingsTabScreen() {
   ) => {
     try {
       setIsLoading(true);
+      console.log("Starting import process...");
+      console.log("Import data type:", typeof encryptedData);
 
-      const success = await importEncryptedData(
-        typeof encryptedData === "string"
-          ? encryptedData
-          : JSON.stringify(encryptedData),
-        masterPassword
-      );
+      // The encryptedData should already be the correct format from exportEncryptedData
+      console.log("Calling importEncryptedData...");
+      console.log("Data type being imported:", typeof encryptedData);
+
+      const success = await importEncryptedData(encryptedData, masterPassword);
+      console.log("Import result:", success);
 
       if (success) {
-        // Reload data after import
-        (await state.masterPassword) &&
-          (await dispatch({ type: "SET_LOADING", payload: true }));
+        console.log("Import successful, reloading data...");
 
-        Alert.alert(
-          "✅ Import Successful",
-          stats
-            ? `Successfully imported ${stats.passwords} passwords and ${stats.notes} notes.\n\nPlease restart the app to see all imported data.`
-            : "Data imported successfully. Please restart the app to see all imported data.",
-          [
-            {
-              text: "Restart App",
-              onPress: () => dispatch({ type: "LOCK_APP" }),
+        // Force refresh data after successful import
+        try {
+          console.log("Reloading user data...");
+
+          if (state.isAuthenticated && state.masterPassword) {
+            // Reload data using the current master password
+            await loadUserData(state.masterPassword);
+            console.log("Data reloaded with current master password");
+          } else {
+            // If not authenticated, try with the import password
+            console.log("Not authenticated, trying with import password");
+            await loadUserData(masterPassword);
+
+            // Update authentication state
+            dispatch({
+              type: "AUTHENTICATE",
+              payload: { isAuthenticated: true, masterPassword },
+            });
+            console.log("Authentication updated with import password");
+          }
+
+          console.log("Data reload completed successfully");
+        } catch (reloadError) {
+          console.error("Error reloading data:", reloadError);
+          // Continue even if reload fails - data was imported to storage
+        }
+
+        const successMessage =
+          stats && stats.passwords && stats.notes
+            ? `Successfully imported data!\n\n📊 Import Summary:\n• ${
+                stats.passwords === "encrypted"
+                  ? "Passwords"
+                  : stats.passwords + " passwords"
+              }\n• ${
+                stats.notes === "encrypted"
+                  ? "Secure Notes"
+                  : stats.notes + " secure notes"
+              }\n\nData has been merged with your existing data.`
+            : "Data imported successfully and merged with your existing data!";
+
+        Alert.alert("✅ Import Successful", successMessage, [
+          {
+            text: "Refresh Data",
+            onPress: async () => {
+              try {
+                console.log("Manual refresh triggered");
+                const passwordToUse = state.masterPassword || masterPassword;
+
+                if (passwordToUse) {
+                  dispatch({ type: "SET_LOADING", payload: true });
+                  await loadUserData(passwordToUse);
+
+                  // Also sync with password store if available
+                  try {
+                    await syncAuthentication(true, passwordToUse);
+                    console.log("Password store synced");
+                  } catch (syncError) {
+                    console.warn("Password store sync failed:", syncError);
+                  }
+
+                  // Force UI refresh
+                  setTimeout(() => {
+                    dispatch({ type: "SET_LOADING", payload: false });
+                  }, 500);
+
+                  Alert.alert(
+                    "✅ Data Refreshed",
+                    "Your imported data is now visible in the app."
+                  );
+                } else {
+                  Alert.alert(
+                    "Error",
+                    "No master password available for refresh."
+                  );
+                }
+              } catch (error: any) {
+                console.error("Error refreshing data:", error);
+                dispatch({ type: "SET_LOADING", payload: false });
+                Alert.alert(
+                  "Refresh Failed",
+                  `Error: ${error?.message || "" || error}`
+                );
+              }
             },
-          ]
-        );
+          },
+          {
+            text: "Done",
+            style: "default",
+          },
+        ]);
       } else {
         Alert.alert(
           "Import Failed",
-          "Failed to import data. Please check the master password and try again."
+          "Failed to import data. This could be due to:\n\n• Incorrect master password\n• Corrupted backup file\n• Incompatible backup format\n\nPlease verify the master password and try again."
         );
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Import error:", error);
       Alert.alert(
         "Import Error",
-        "Failed to import data. The backup file may be corrupted or the password is incorrect."
+        `Failed to import data.\n\nError: ${
+          error?.message || "" || error
+        }\n\nThis could be due to:\n• Incorrect master password\n• Corrupted or invalid backup file\n• Network or storage issues`
       );
     } finally {
       setIsLoading(false);
@@ -540,7 +788,7 @@ export default function SettingsTabScreen() {
           : "Failed to backup data. Please try again.";
         Alert.alert("Backup Error", errorMessage);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Backup error:", error);
       Alert.alert("Backup Error", "Failed to backup data. Please try again.");
     } finally {
@@ -569,15 +817,26 @@ export default function SettingsTabScreen() {
       const success = await clearAllData();
 
       if (success) {
+        // Reset app state and navigate to setup screen
+        dispatch({ type: "RESET_APP" });
+
         Alert.alert(
-          "Data Deleted",
-          "All data has been deleted successfully. The app will restart.",
-          [{ text: "OK", onPress: () => dispatch({ type: "LOCK_APP" }) }]
+          "✅ Data Deleted Successfully",
+          "All your passwords, notes, and settings have been permanently deleted. The app has been reset to initial setup.",
+          [
+            {
+              text: "Start Fresh",
+              onPress: () => {
+                // Navigate to setup screen using router.replace to prevent going back
+                router.replace("/setup");
+              },
+            },
+          ]
         );
       } else {
         Alert.alert("Error", "Failed to delete data. Please try again.");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Delete data error:", error);
       Alert.alert("Error", "Failed to delete data. Please try again.");
     } finally {
@@ -664,7 +923,7 @@ export default function SettingsTabScreen() {
           "Failed to change master password. Please check your current password and try again."
         );
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Change password error:", error);
       Alert.alert(
         "Error",
@@ -1105,10 +1364,10 @@ export default function SettingsTabScreen() {
             <Ionicons name="cog" size={24} color={Colors.dark.warning} />
             <Text style={styles.sectionTitle}>Mission Actions</Text>
           </View>
-          <View style={styles.actionsGroup}>
+          <View style={styles.actionsGrid}>
             <ActionButton
               title="Backup Data"
-              subtitle="Save current data to secure storage"
+              subtitle="Save current data"
               icon="shield-checkmark"
               color={Colors.dark.neonGreen}
               onPress={handleBackupData}
@@ -1116,63 +1375,174 @@ export default function SettingsTabScreen() {
             />
             <ActionButton
               title="Export Backup"
-              subtitle="Create shareable encrypted backup file"
+              subtitle="Save to device"
               icon="download"
               onPress={handleExportData}
               disabled={isLoading}
             />
             <ActionButton
               title="Import Backup"
-              subtitle="Restore data from backup file"
+              subtitle="Restore from file"
               icon="cloud-upload"
               color="#8b5cf6"
               onPress={handleImportData}
               disabled={isLoading}
             />
             <ActionButton
-              title="Change Master Password"
-              subtitle="Update your master password"
+              title="Change Master Key"
+              subtitle="Update password"
               icon="key"
               onPress={handleChangeMasterPassword}
               disabled={isLoading}
             />
             <ActionButton
               title="Delete All Data"
-              subtitle="Permanently delete all vault data"
+              subtitle="Nuke everything"
               icon="trash"
               color={Colors.dark.error}
               onPress={handleDeleteAllData}
+              disabled={isLoading}
+            />
+            <ActionButton
+              title="Review App"
+              subtitle="Rate on store"
+              icon="star"
+              color={Colors.dark.warning}
+              onPress={() => Alert.alert("Coming Soon!")}
               disabled={isLoading}
             />
           </View>
         </View>
 
         <View style={styles.footer}>
-          <Text style={styles.appVersion}>Passport v1.0.0</Text>
-          <Text style={styles.footerText}>
-            {isLoading ? "Saving changes..." : "Built for space explorers 🚀"}
-          </Text>
-
-          {/* Debug Info - Remove in production */}
           <ReachPressable
-            style={styles.debugButton}
-            onPress={() => {
+            onLongPress={() => {
               Alert.alert(
                 "Debug Info",
                 `Authentication Status:\n• Is Authenticated: ${
                   state.isAuthenticated
-                }\n• Has Master Password: ${!!state.masterPassword}\n• Is Locked: ${
-                  state.passwords.length
-                }\n• Passwords Count: ${
-                  state.passwords.length
-                }\n• Notes Count: ${state.secureNotes.length}`
+                }\n• Has Master Password: ${!!state.masterPassword}\n• Passwords Count: ${
+                  passwords.length
+                }\n• Notes Count: ${secureNotes.length}`
               );
             }}
           >
-            <Text style={styles.debugText}>Debug Info</Text>
+            <LinearGradient
+              colors={["rgba(255, 255, 255, 0.1)", "rgba(255, 255, 255, 0)"]}
+              style={styles.footerBadge}
+            >
+              <Text style={styles.appVersion}>Passport v1.0.0</Text>
+            </LinearGradient>
           </ReachPressable>
+          <Text style={styles.footerText}>
+            {isLoading
+              ? "Syncing with the mothership..."
+              : "Built for space explorers 🚀"}
+          </Text>
         </View>
       </ScrollView>
+
+      {/* Import Password Modal */}
+      <Modal
+        visible={showPasswordModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={handlePasswordModalCancel}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              {/* Header */}
+              <View style={styles.modalHeader}>
+                <View style={styles.iconWrapper}>
+                  <Ionicons
+                    name="cloud-download"
+                    size={28}
+                    color={Colors.dark.primary}
+                  />
+                </View>
+                <Text style={styles.modalTitle}>Import Backup</Text>
+                <Text style={styles.modalSubtitle}>
+                  Enter your master password to decrypt and import the backup
+                  data
+                </Text>
+              </View>
+
+              {/* Stats Card */}
+              {importData?.stats && (
+                <View style={styles.statsCard}>
+                  <Text style={styles.statsTitle}>Backup Contents</Text>
+                  <View style={styles.statsGrid}>
+                    <View style={styles.statBox}>
+                      <Text style={styles.statValue}>
+                        {importData.stats.passwords}
+                      </Text>
+                      <Text style={styles.statLabel}>Passwords</Text>
+                    </View>
+                    <View style={styles.statBox}>
+                      <Text style={styles.statValue}>
+                        {importData.stats.notes}
+                      </Text>
+                      <Text style={styles.statLabel}>Notes</Text>
+                    </View>
+                  </View>
+                </View>
+              )}
+
+              {/* Password Input */}
+              <View style={styles.inputSection}>
+                <Text style={styles.inputLabel}>Master Password</Text>
+                <View style={styles.inputWrapper}>
+                  <Ionicons
+                    name="key"
+                    size={20}
+                    color={Colors.dark.textMuted}
+                    style={styles.inputIconLeft}
+                  />
+                  <TextInput
+                    style={styles.passwordInput}
+                    value={importPassword}
+                    onChangeText={setImportPassword}
+                    placeholder="Enter password..."
+                    placeholderTextColor={Colors.dark.textMuted}
+                    secureTextEntry={true}
+                    autoFocus={true}
+                    returnKeyType="done"
+                    onSubmitEditing={handlePasswordModalSubmit}
+                  />
+                </View>
+              </View>
+
+              {/* Action Buttons */}
+              <View style={styles.modalActionButtons}>
+                <ReachPressable
+                  style={[styles.modalActionButton, styles.modalCancelButton]}
+                  onPress={handlePasswordModalCancel}
+                  reachScale={1.02}
+                  pressScale={0.98}
+                >
+                  <Text style={styles.cancelText}>Cancel</Text>
+                </ReachPressable>
+
+                <ReachPressable
+                  style={[styles.modalActionButton, styles.modalImportButton]}
+                  onPress={handlePasswordModalSubmit}
+                  reachScale={1.02}
+                  pressScale={0.98}
+                >
+                  <LinearGradient
+                    colors={[Colors.dark.primary, Colors.dark.neonGreen]}
+                    style={styles.importButtonInner}
+                  >
+                    <Ionicons name="download" size={16} color="#000" />
+                    <Text style={styles.importText}>Import</Text>
+                  </LinearGradient>
+                </ReachPressable>
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -1207,9 +1577,6 @@ const styles = StyleSheet.create({
     padding: 4,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.05)",
-  },
-  actionsGroup: {
-    gap: 8,
   },
   settingRow: {
     marginBottom: 4,
@@ -1249,46 +1616,64 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.dark.textSecondary,
   },
+  actionsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+  },
   actionButton: {
-    marginBottom: 12,
-    borderRadius: 16,
+    width: "48%", // Two columns
+    marginBottom: 16,
+    borderRadius: 20,
     overflow: "hidden",
   },
   actionGradient: {
-    flexDirection: "row",
     alignItems: "center",
     padding: 20,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.1)",
-    borderRadius: 16,
+    borderRadius: 20,
+    minHeight: 140,
+    justifyContent: "center",
   },
   actionText: {
-    marginLeft: 16,
-    flex: 1,
+    marginTop: 12,
+    alignItems: "center",
   },
   actionTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "600",
+    textAlign: "center",
     marginBottom: 4,
   },
   actionSubtitle: {
-    fontSize: 14,
+    fontSize: 12,
     color: Colors.dark.textSecondary,
+    textAlign: "center",
   },
   footer: {
     alignItems: "center",
     paddingVertical: 32,
     marginTop: 20,
   },
+  footerBadge: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    marginBottom: 8,
+  },
   appVersion: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "600",
     color: Colors.dark.text,
-    marginBottom: 8,
+    opacity: 0.8,
   },
   footerText: {
     fontSize: 14,
     color: Colors.dark.textSecondary,
+    fontStyle: "italic",
   },
   disabledRow: {
     opacity: 0.5,
@@ -1361,5 +1746,157 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.dark.textMuted,
     textAlign: "center",
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.85)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  modalContainer: {
+    width: "100%",
+    maxWidth: 380,
+  },
+  modalContent: {
+    backgroundColor: Colors.dark.surface,
+    borderRadius: 24,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  modalHeader: {
+    alignItems: "center",
+    marginBottom: 24,
+  },
+  iconWrapper: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: Colors.dark.primary + "20",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: Colors.dark.primary + "40",
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: Colors.dark.textSecondary,
+    textAlign: "center",
+    lineHeight: 20,
+  },
+  statsCard: {
+    backgroundColor: "rgba(139, 92, 246, 0.08)",
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: "rgba(139, 92, 246, 0.15)",
+  },
+  statsTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.textSecondary,
+    textAlign: "center",
+    marginBottom: 12,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  statsGrid: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+  },
+  statBox: {
+    alignItems: "center",
+  },
+  statValue: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+    fontWeight: "500",
+  },
+  inputSection: {
+    marginBottom: 32,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.text,
+    marginBottom: 8,
+  },
+  inputWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    paddingHorizontal: 16,
+  },
+  inputIconLeft: {
+    marginRight: 12,
+  },
+  passwordInput: {
+    flex: 1,
+    paddingVertical: 16,
+    fontSize: 16,
+    color: Colors.dark.text,
+    fontWeight: "500",
+  },
+  modalActionButtons: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  modalActionButton: {
+    flex: 1,
+    borderRadius: 16,
+    overflow: "hidden",
+  },
+  modalCancelButton: {
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.15)",
+    padding: 16,
+    alignItems: "center",
+  },
+  cancelText: {
+    color: Colors.dark.textSecondary,
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  modalImportButton: {
+    overflow: "hidden",
+  },
+  importButtonInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    gap: 8,
+  },
+  importText: {
+    color: "#000",
+    fontSize: 16,
+    fontWeight: "700",
   },
 });

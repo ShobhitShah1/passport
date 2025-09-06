@@ -69,6 +69,11 @@ function appReducer(state: AppState, action: AppAction): AppState {
         secureNotes: [], // Clear sensitive data when locked
       };
 
+    case "RESET_APP":
+      return {
+        ...initialState, // Reset to initial state completely
+      };
+
     case "SET_PASSWORDS":
       return {
         ...state,

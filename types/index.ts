@@ -137,6 +137,7 @@ export interface AppState {
 export type AppAction =
   | { type: 'AUTHENTICATE'; payload: { isAuthenticated: boolean; masterPassword?: string } }
   | { type: 'LOCK_APP' }
+  | { type: 'RESET_APP' }
   | { type: 'SET_PASSWORDS'; payload: Password[] }
   | { type: 'ADD_PASSWORD'; payload: Password }
   | { type: 'UPDATE_PASSWORD'; payload: Password }

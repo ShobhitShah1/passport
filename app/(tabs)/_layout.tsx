@@ -1,15 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { Tabs } from "expo-router";
-import React, { useEffect, useRef } from "react";
-import {
-  Dimensions,
-  LayoutChangeEvent,
-  Pressable,
-  StyleSheet,
-  View,
-} from "react-native";
-import { useSharedValue, withSpring } from "react-native-reanimated";
+import React from "react";
+import { Dimensions, Pressable, StyleSheet, View } from "react-native";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const TAB_BAR_HEIGHT = 70;
@@ -24,27 +17,8 @@ const Colors = {
   primary: "#3b82f6",
 };
 
-type TabBarLayout = { x: number; width: number };
-
 const SlidingNotchTabBar = ({ state, navigation }: BottomTabBarProps) => {
-  const layouts = useRef<TabBarLayout[]>([]).current;
   const { routes, index: activeIndex } = state;
-
-  const notchPositionX = useSharedValue(0);
-
-  useEffect(() => {
-    const newLayout = layouts[activeIndex];
-    if (newLayout) {
-      notchPositionX.value = withSpring(
-        newLayout.x + newLayout.width / 2 - ICON_CONTAINER_SIZE / 2,
-        { damping: 15, stiffness: 100 }
-      );
-    }
-  }, [activeIndex, layouts, notchPositionX]);
-
-  const onLayout = (event: LayoutChangeEvent, index: number) => {
-    layouts[index] = event.nativeEvent.layout;
-  };
 
   return (
     <View style={styles.container}>
@@ -66,12 +40,7 @@ const SlidingNotchTabBar = ({ state, navigation }: BottomTabBarProps) => {
           };
 
           return (
-            <Pressable
-              key={route.key}
-              onPress={onPress}
-              onLayout={(event) => onLayout(event, index)}
-              style={styles.tabItem}
-            >
+            <Pressable key={route.key} onPress={onPress} style={styles.tabItem}>
               <Ionicons name={iconName} size={26} color={iconColor} />
             </Pressable>
           );
@@ -102,6 +71,7 @@ const getIconName = (
 export default function TabLayout() {
   return (
     <Tabs
+      key="tabs"
       tabBar={(props) => <SlidingNotchTabBar {...props} />}
       screenOptions={{
         headerShown: false,

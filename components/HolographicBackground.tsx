@@ -1,5 +1,4 @@
 import Colors from "@/constants/Colors";
-import { BlurView } from "expo-blur";
 import React, { useEffect, useMemo, useRef } from "react";
 import { Animated, Dimensions, StyleSheet, View } from "react-native";
 import Svg, {
@@ -171,7 +170,7 @@ export const HolographicGrid = () => {
 export const ParticleSystem = () => {
   const particles = useMemo(
     () =>
-      Array.from({ length: 20 }, (_, i) => ({
+      Array.from({ length: 10 }, (_, i) => ({
         id: i,
         x: Math.random() * screenWidth,
         y: Math.random() * screenHeight,
@@ -256,10 +255,10 @@ export const ParticleSystem = () => {
 
 const HolographicBackground = () => {
   return (
-    <BlurView intensity={120} tint="dark" style={StyleSheet.absoluteFill}>
+    <>
       <HolographicGrid />
       <ParticleSystem />
-    </BlurView>
+    </>
   );
 };
 

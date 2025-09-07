@@ -167,14 +167,29 @@ export default function SetupScreen() {
   }, []);
 
   const checkBiometricSupport = async () => {
-    const compatible = await LocalAuthentication.hasHardwareAsync();
-    if (compatible) {
-      const enrolled = await LocalAuthentication.isEnrolledAsync();
-      if (enrolled) {
-        const types =
-          await LocalAuthentication.supportedAuthenticationTypesAsync();
-        setBiometricType(types);
+    try {
+      const compatible = await LocalAuthentication.hasHardwareAsync();
+      if (!compatible) {
+        setBiometricType([]);
+        return;
       }
+
+      const enrolled = await LocalAuthentication.isEnrolledAsync();
+      if (!enrolled) {
+        setBiometricType([]);
+        return;
+      }
+
+      const types = await LocalAuthentication.supportedAuthenticationTypesAsync();
+      if (types.length === 0) {
+        setBiometricType([]);
+        return;
+      }
+
+      setBiometricType(types);
+    } catch (error) {
+      console.error('Error checking biometric support:', error);
+      setBiometricType([]);
     }
   };
 
@@ -303,9 +318,56 @@ export default function SetupScreen() {
     handleSetup(pin);
   };
 
-  const enableBiometric = () => {
-    setIsBiometricEnabled(true);
-    handleSetup(pin);
+  const enableBiometric = async () => {
+    setIsLoading(true);
+    try {
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: "Verify your biometric authentication to enable this feature",
+        biometricsSecurityLevel: "strong",
+        cancelLabel: "Cancel",
+        fallbackLabel: "Use PIN",
+        disableDeviceFallback: false,
+      });
+
+      if (result.success) {
+        setIsBiometricEnabled(true);
+        handleSetup(pin);
+      } else {
+        Alert.alert(
+          "Biometric Setup Failed", 
+          "Biometric authentication failed. You can enable it later in settings.",
+          [
+            {
+              text: "Continue with PIN only",
+              onPress: () => {
+                setIsBiometricEnabled(false);
+                handleSetup(pin);
+              }
+            },
+            {
+              text: "Try Again",
+              onPress: enableBiometric
+            }
+          ]
+        );
+      }
+    } catch (error) {
+      Alert.alert(
+        "Error",
+        "Failed to verify biometric authentication. Continuing with PIN only.",
+        [
+          {
+            text: "OK",
+            onPress: () => {
+              setIsBiometricEnabled(false);
+              handleSetup(pin);
+            }
+          }
+        ]
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleButtonPress = () => {

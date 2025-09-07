@@ -377,6 +377,7 @@ export default function AddNoteModal({ visible, onClose }: AddNoteModalProps) {
                 leftIcon="document-text-outline"
                 multiline
                 numberOfLines={8}
+                inputStyle={{ minHeight: 160, textAlignVertical: "top" }}
                 containerStyle={styles.contentInput}
               />
             </HoloInput>
@@ -405,7 +406,7 @@ export default function AddNoteModal({ visible, onClose }: AddNoteModalProps) {
               style={styles.actionGradient}
             >
               <Button
-                title="ABORT MISSION"
+                title="ABORT"
                 onPress={onClose}
                 variant="outline"
                 style={styles.cancelButton}
@@ -518,10 +519,10 @@ const styles = StyleSheet.create({
   holoInputHeader: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 12,
-    gap: 12,
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: 16,
+    gap: 16,
   },
   holoInputTitle: {
     fontSize: 16,
@@ -533,38 +534,33 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 2,
     backgroundColor: Colors.dark.primary,
-    marginLeft: 10,
+    marginLeft: 12,
   },
   holoInputContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     paddingBottom: 20,
-    paddingTop: 0,
-    gap: 16,
+    gap: 15,
   },
   categoryLabel: {
     fontSize: 14,
     color: Colors.dark.neonGreen,
     fontWeight: "700",
     letterSpacing: 1,
-    marginBottom: 16,
   },
-  categoryScroll: {
-    marginBottom: 4,
-  },
+  categoryScroll: {},
   categoryOptions: {
     flexDirection: "row",
-    gap: 12,
-    paddingRight: 24,
+    gap: 16,
     alignItems: "center",
   },
   categoryOption: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
     borderRadius: 16,
     backgroundColor: Colors.dark.surfaceVariant,
     borderWidth: 1,
     borderColor: Colors.dark.primary,
-    minHeight: 40,
+    minHeight: 44,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -587,8 +583,8 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   contentInput: {
-    minHeight: 160,
     alignSelf: "stretch",
+    marginBottom: 8,
   },
   actionPanel: {
     borderTopWidth: 2,

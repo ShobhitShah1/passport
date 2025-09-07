@@ -1,10 +1,11 @@
 import AppIcon from "@/components/ui/AppIcon";
+import { ReachPressable } from "@/components/ui/ReachPressable";
 import Colors from "@/constants/Colors";
 import { useAppContext } from "@/hooks/useAppContext";
 import { getInstalledApps } from "@/services/apps/appDetection";
 import { InstalledApp, SecureNote } from "@/types";
 import { Ionicons } from "@expo/vector-icons";
-import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
@@ -26,16 +27,36 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AddNoteModal from "../../components/add-note-modal";
 import AddPasswordModal from "../../components/add-password-modal";
 
-const AnimatedView = Animated.createAnimatedComponent(View);
-
 const TwinklingStar = React.memo(
   ({ style, size }: { style: object; size: number }) => {
+    const opacity = useSharedValue(0.2);
+    const scale = useSharedValue(1);
+
+    React.useEffect(() => {
+      opacity.value = withRepeat(
+        withTiming(0.8, { duration: 2000 + Math.random() * 1000 }),
+        -1,
+        true
+      );
+      scale.value = withRepeat(
+        withTiming(1.2, { duration: 3000 + Math.random() * 1000 }),
+        -1,
+        true
+      );
+    }, []);
+
+    const animatedStyle = useAnimatedStyle(() => ({
+      opacity: opacity.value,
+      transform: [{ scale: scale.value }],
+    }));
+
     return (
-      <View
+      <Animated.View
         style={[
           styles.star,
-          { width: size, height: size, borderRadius: size / 2, opacity: 0.4 },
+          { width: size, height: size, borderRadius: size / 2 },
           style,
+          animatedStyle,
         ]}
       />
     );
@@ -79,6 +100,17 @@ const AppCard = React.memo(
     hasPassword: boolean;
     onAddPassword: (app: InstalledApp) => void;
   }) => {
+    const cardScale = useSharedValue(1);
+    const glowOpacity = useSharedValue(0.1);
+
+    React.useEffect(() => {
+      glowOpacity.value = withRepeat(
+        withTiming(hasPassword ? 0.4 : 0.2, { duration: 2000 }),
+        -1,
+        true
+      );
+    }, [index, hasPassword]);
+
     const handlePress = () => {
       if (hasPassword) {
         Alert.alert(
@@ -99,97 +131,128 @@ const AppCard = React.memo(
       }
     };
 
+    const handlePressIn = () => {
+      "worklet";
+      cardScale.value = withTiming(0.96, { duration: 150 });
+    };
+
+    const handlePressOut = () => {
+      "worklet";
+      cardScale.value = withTiming(1, { duration: 150 });
+    };
+
+    const animatedStyle = useAnimatedStyle(() => ({
+      transform: [{ scale: cardScale.value }],
+    }));
+
     return (
-      <Pressable
-        onPress={handlePress}
-        style={({ pressed }) => [
-          styles.appCardContainer,
-          pressed && { transform: [{ scale: 0.98 }], opacity: 0.8 },
-        ]}
-      >
-        <View
-          style={[
-            styles.appCard,
-            !app.isSupported && styles.appCardUnsupported,
-          ]}
+      <Animated.View style={[styles.appCardContainer, animatedStyle]}>
+        <ReachPressable
+          onPress={handlePress}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+          style={styles.appCardPressable}
+          reachScale={1}
+          pressScale={1}
         >
-          <View style={styles.appCardHeader}>
-            <AppIcon
-              appName={app.name}
-              appId={app.id}
-              icon={app.icon}
-              size="medium"
-              showGlow={app.isSupported}
-            />
-            <View style={styles.appCardInfo}>
-              <Text style={styles.appName} numberOfLines={1}>
-                {app.name}
-              </Text>
-              <Text style={styles.appCategory} numberOfLines={1}>
-                {app.category || (app.isSupported ? "Supported" : "Custom App")}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.appCardFooter}>
-            <View
-              style={[
-                styles.categoryBadge,
-                !app.isSupported && styles.categoryBadgeUnsupported,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.categoryBadgeText,
-                  !app.isSupported && styles.categoryBadgeTextUnsupported,
-                ]}
-              >
-                {app.isSupported ? app.category : "Custom"}
-              </Text>
-            </View>
-
-            <View
-              style={[
-                styles.actionButton,
-                hasPassword && styles.actionButtonSaved,
-              ]}
-            >
-              {hasPassword ? (
-                <>
-                  <Ionicons
-                    name="shield-checkmark"
-                    size={14}
-                    color={Colors.dark.neonGreen}
-                  />
-                  <Text
-                    style={[
-                      styles.actionText,
-                      { color: Colors.dark.neonGreen },
-                    ]}
-                  >
-                    Secured
+          <LinearGradient
+            colors={
+              hasPassword
+                ? [
+                    "rgba(0, 255, 136, 0.05)",
+                    "rgba(255, 255, 255, 0.02)",
+                    "rgba(0, 212, 255, 0.03)",
+                  ]
+                : [
+                    "rgba(255, 255, 255, 0.08)",
+                    "rgba(255, 255, 255, 0.02)",
+                    "rgba(255, 255, 255, 0.01)",
+                  ]
+            }
+            style={[
+              styles.appCard,
+              !app.isSupported && styles.appCardUnsupported,
+              hasPassword && styles.appCardSecured,
+            ]}
+          >
+            <View style={styles.appCardHeader}>
+              <View style={styles.appIconWrapper}>
+                <AppIcon
+                  appName={app.name}
+                  appId={app.id}
+                  icon={app.icon}
+                  size="medium"
+                  showGlow={app.isSupported}
+                />
+                {hasPassword && (
+                  <View style={styles.securityBadge}>
+                    <Ionicons
+                      name="shield-checkmark"
+                      size={12}
+                      color={Colors.dark.neonGreen}
+                    />
+                  </View>
+                )}
+              </View>
+              <View style={styles.appCardInfo}>
+                <Text style={styles.appName} numberOfLines={1}>
+                  {app.name}
+                </Text>
+                <View style={styles.appMetaRow}>
+                  <Text style={styles.appCategory} numberOfLines={1}>
+                    {app.category ||
+                      (app.isSupported ? "Supported" : "Custom App")}
                   </Text>
-                </>
-              ) : (
-                <>
-                  <Ionicons
-                    name="add-circle-outline"
-                    size={14}
-                    color={Colors.dark.primary}
-                  />
-                  <Text style={styles.actionText}>Add Password</Text>
-                </>
+                </View>
+                {app.isSupported && (
+                  <View style={styles.supportedIndicator}>
+                    <View style={styles.supportedDot} />
+                    <Text style={styles.supportedText}>Verified</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+
+            <View style={styles.appCardContent}>
+              {app.packageName && (
+                <Text style={styles.packageName} numberOfLines={1}>
+                  {app.packageName}
+                </Text>
               )}
             </View>
-          </View>
 
-          {app.packageName && (
-            <Text style={styles.packageName} numberOfLines={1}>
-              {app.packageName}
-            </Text>
-          )}
-        </View>
-      </Pressable>
+            <View style={styles.appCardFooter}>
+              <View style={styles.appCardActions}>
+                {hasPassword ? (
+                  <LinearGradient
+                    colors={[
+                      "rgba(0, 255, 136, 0.2)",
+                      "rgba(0, 255, 136, 0.1)",
+                    ]}
+                    style={styles.securedActionButton}
+                  >
+                    <Ionicons
+                      name="shield-checkmark"
+                      size={16}
+                      color={Colors.dark.neonGreen}
+                    />
+                    <Text style={styles.securedActionText}>Secured</Text>
+                  </LinearGradient>
+                ) : (
+                  <View style={styles.addActionButton}>
+                    <Ionicons
+                      name="add-circle"
+                      size={16}
+                      color={Colors.dark.primary}
+                    />
+                    <Text style={styles.addActionText}>Add Credentials</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          </LinearGradient>
+        </ReachPressable>
+      </Animated.View>
     );
   }
 );
@@ -203,46 +266,140 @@ const SecureNoteCard = ({
   index: number;
   onPress: (note: SecureNote) => void;
 }) => {
+  const cardScale = useSharedValue(1);
+  const cardOpacity = useSharedValue(0);
+
+  React.useEffect(() => {
+    cardOpacity.value = withTiming(1, {
+      duration: 400 + index * 50,
+    });
+  }, [index]);
+
   const previewText =
     note.content.length > 80
       ? note.content.substring(0, 80) + "..."
       : note.content;
 
+  const handlePressIn = () => {
+    "worklet";
+    cardScale.value = withTiming(0.98, { duration: 150 });
+  };
+
+  const handlePressOut = () => {
+    "worklet";
+    cardScale.value = withTiming(1, { duration: 150 });
+  };
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: cardScale.value }],
+    opacity: cardOpacity.value,
+  }));
+
+  const getCategoryColor = (category: string) => {
+    switch (category?.toLowerCase()) {
+      case "personal":
+        return Colors.dark.neonGreen;
+      case "work":
+        return Colors.dark.primary;
+      case "finance":
+        return Colors.dark.warning;
+      default:
+        return Colors.dark.textMuted;
+    }
+  };
+
+  const categoryColor = getCategoryColor(note.category);
+
   return (
-    <Pressable onPress={() => onPress(note)} style={styles.noteCardContainer}>
-      <View style={styles.noteCard}>
-        <View style={styles.noteHeader}>
-          <Ionicons
-            name="document-lock"
-            size={20}
-            color={Colors.dark.primary}
-          />
-          <View style={styles.noteInfo}>
-            <Text style={styles.noteTitle} numberOfLines={1}>
-              {note.title}
-            </Text>
-            <Text style={styles.noteCategory}>
-              {note.category} • {note.tags.length} tags
-            </Text>
+    <Animated.View style={[styles.noteCardContainer, animatedStyle]}>
+      <ReachPressable
+        onPress={() => onPress(note)}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        style={styles.noteCardPressable}
+        reachScale={1}
+        pressScale={1}
+      >
+        <LinearGradient
+          colors={[
+            "rgba(255, 255, 255, 0.06)",
+            "rgba(255, 255, 255, 0.02)",
+            "rgba(255, 255, 255, 0.01)",
+          ]}
+          style={styles.noteCard}
+        >
+          <View style={styles.noteHeader}>
+            <View
+              style={[
+                styles.noteIconContainer,
+                { backgroundColor: categoryColor + "20" },
+              ]}
+            >
+              <Ionicons name="document-lock" size={18} color={categoryColor} />
+            </View>
+            <View style={styles.noteInfo}>
+              <View style={styles.noteTitleRow}>
+                <Text style={styles.noteTitle} numberOfLines={1}>
+                  {note.title}
+                </Text>
+                {note.isFavorite && (
+                  <Ionicons
+                    name="heart"
+                    size={14}
+                    color={Colors.dark.warning}
+                  />
+                )}
+              </View>
+              <View style={styles.noteMetaRow}>
+                <View
+                  style={[
+                    styles.categoryPill,
+                    { backgroundColor: categoryColor + "15" },
+                  ]}
+                >
+                  <Text
+                    style={[styles.categoryPillText, { color: categoryColor }]}
+                  >
+                    {note.category}
+                  </Text>
+                </View>
+                <Text style={styles.noteTags}>
+                  {note.tags.length} {note.tags.length === 1 ? "tag" : "tags"}
+                </Text>
+              </View>
+            </View>
           </View>
-        </View>
 
-        <Text style={styles.notePreview} numberOfLines={3}>
-          {previewText}
-        </Text>
+          <Text style={styles.notePreview} numberOfLines={3}>
+            {previewText}
+          </Text>
 
-        <View style={styles.noteFooter}>
-          <View style={styles.noteDate}>
-            <Text style={styles.noteDateText}>
-              {new Date(note.updatedAt).toLocaleDateString()}
-            </Text>
+          <View style={styles.noteFooter}>
+            <View style={styles.noteFooterLeft}>
+              <Text style={styles.noteDateText}>
+                {new Date(note.updatedAt).toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  year: "2-digit",
+                })}
+              </Text>
+            </View>
+            <View style={styles.noteFooterRight}>
+              <Ionicons
+                name="lock-closed"
+                size={12}
+                color={Colors.dark.textMuted}
+              />
+              <Ionicons
+                name="chevron-forward"
+                size={14}
+                color={Colors.dark.textMuted}
+              />
+            </View>
           </View>
-          {note.isFavorite && (
-            <Ionicons name="heart" size={14} color={Colors.dark.neonGreen} />
-          )}
-        </View>
-      </View>
-    </Pressable>
+        </LinearGradient>
+      </ReachPressable>
+    </Animated.View>
   );
 };
 
@@ -259,9 +416,9 @@ const LoadingSpinner = React.memo(() => {
 
   return (
     <View style={styles.loadingContainer}>
-      <AnimatedView style={[styles.loadingSpinner, animatedStyle]}>
+      <Animated.View style={[styles.loadingSpinner, animatedStyle]}>
         <Ionicons name="sync" size={32} color={Colors.dark.primary} />
-      </AnimatedView>
+      </Animated.View>
       <Text style={styles.loadingText}>Scanning installed apps...</Text>
       <Text style={styles.loadingSubtext}>This may take a moment</Text>
     </View>
@@ -284,25 +441,34 @@ const CategoryFilter = ({
         showsHorizontalScrollIndicator={false}
         data={categories}
         keyExtractor={(item) => item}
-        contentContainerStyle={{ paddingHorizontal: 20, gap: 12 }}
-        renderItem={({ item }) => (
-          <Pressable
-            onPress={() => onCategoryChange(item)}
-            style={[
-              styles.categoryButton,
-              selectedCategory === item && styles.categoryButtonActive,
-            ]}
-          >
-            <Text
+        contentContainerStyle={{ paddingHorizontal: 20, gap: 10 }}
+        renderItem={({ item, index }) => {
+          const isSelected = selectedCategory === item;
+          return (
+            <ReachPressable
+              onPress={() => onCategoryChange(item)}
               style={[
-                styles.categoryText,
-                selectedCategory === item && styles.categoryTextActive,
+                styles.categoryChip,
+                isSelected && styles.categoryChipActive,
               ]}
+              reachScale={1.05}
+              pressScale={0.95}
             >
-              {item}
-            </Text>
-          </Pressable>
-        )}
+              {isSelected ? (
+                <LinearGradient
+                  colors={[Colors.dark.primary, Colors.dark.secondary]}
+                  style={styles.categoryChipGradient}
+                >
+                  <Text style={styles.categoryTextActive}>{item}</Text>
+                </LinearGradient>
+              ) : (
+                <View style={styles.categoryChipContent}>
+                  <Text style={styles.categoryText}>{item}</Text>
+                </View>
+              )}
+            </ReachPressable>
+          );
+        }}
       />
     </View>
   );
@@ -411,100 +577,132 @@ export default function AppsScreen() {
 
       <View style={styles.header}>
         <View style={styles.headerContent}>
-          <View>
+          <View style={styles.headerTextContainer}>
             <Text style={styles.title}>
-              {viewMode === "apps" ? "Your Apps" : "Secure Notes"}
+              {viewMode === "apps" ? "🚀 Digital Vault" : "📝 Secure Notes"}
             </Text>
             <Text style={styles.subtitle}>
               {viewMode === "apps"
                 ? loading
-                  ? "Scanning your device for installed apps..."
-                  : `${installedApps.length} apps found • Choose one to add credentials`
-                : "Store sensitive information securely"}
+                  ? "Scanning quantum space for installed applications..."
+                  : `${installedApps.length} apps detected • Select to secure credentials`
+                : "Store classified information with quantum encryption"}
             </Text>
           </View>
 
           {viewMode === "notes" && (
-            <Pressable
+            <ReachPressable
               onPress={() => setNoteModalVisible(true)}
               style={styles.addButton}
+              reachScale={1.05}
+              pressScale={0.95}
             >
-              <Ionicons name="add" size={24} color={Colors.dark.background} />
-            </Pressable>
+              <LinearGradient
+                colors={[Colors.dark.neonGreen, Colors.dark.primary]}
+                style={styles.addButtonGradient}
+              >
+                <Ionicons name="add" size={20} color={Colors.dark.background} />
+              </LinearGradient>
+            </ReachPressable>
           )}
         </View>
 
         <View style={styles.toggleContainer}>
-          <Pressable
-            onPress={() => setViewMode("apps")}
-            style={[
-              styles.toggleButton,
-              viewMode === "apps" && styles.toggleButtonActive,
-            ]}
+          <LinearGradient
+            colors={["rgba(255, 255, 255, 0.08)", "rgba(255, 255, 255, 0.02)"]}
+            style={styles.toggleBackground}
           >
-            <Ionicons
-              name="apps"
-              size={16}
-              color={
-                viewMode === "apps"
-                  ? Colors.dark.background
-                  : Colors.dark.textSecondary
-              }
-            />
-            <Text
+            <ReachPressable
+              onPress={() => setViewMode("apps")}
               style={[
-                styles.toggleText,
-                viewMode === "apps" && styles.toggleTextActive,
+                styles.toggleButton,
+                viewMode === "apps" && styles.toggleButtonActive,
               ]}
+              reachScale={1.02}
+              pressScale={0.98}
             >
-              Apps
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => setViewMode("notes")}
-            style={[
-              styles.toggleButton,
-              viewMode === "notes" && styles.toggleButtonActive,
-            ]}
-          >
-            <Ionicons
-              name="document-lock"
-              size={16}
-              color={
-                viewMode === "notes"
-                  ? Colors.dark.background
-                  : Colors.dark.textSecondary
-              }
-            />
-            <Text
+              {viewMode === "apps" && (
+                <LinearGradient
+                  colors={[Colors.dark.primary, Colors.dark.secondary]}
+                  style={styles.toggleButtonGradient}
+                />
+              )}
+              <Ionicons
+                name="apps"
+                size={16}
+                color={
+                  viewMode === "apps"
+                    ? Colors.dark.background
+                    : Colors.dark.textSecondary
+                }
+              />
+              <Text
+                style={[
+                  styles.toggleText,
+                  viewMode === "apps" && styles.toggleTextActive,
+                ]}
+              >
+                Apps
+              </Text>
+            </ReachPressable>
+            <ReachPressable
+              onPress={() => setViewMode("notes")}
               style={[
-                styles.toggleText,
-                viewMode === "notes" && styles.toggleTextActive,
+                styles.toggleButton,
+                viewMode === "notes" && styles.toggleButtonActive,
               ]}
+              reachScale={1.02}
+              pressScale={0.98}
             >
-              Notes
-            </Text>
-          </Pressable>
+              {viewMode === "notes" && (
+                <LinearGradient
+                  colors={[Colors.dark.primary, Colors.dark.secondary]}
+                  style={styles.toggleButtonGradient}
+                />
+              )}
+              <Ionicons
+                name="document-lock"
+                size={16}
+                color={
+                  viewMode === "notes"
+                    ? Colors.dark.background
+                    : Colors.dark.textSecondary
+                }
+              />
+              <Text
+                style={[
+                  styles.toggleText,
+                  viewMode === "notes" && styles.toggleTextActive,
+                ]}
+              >
+                Notes
+              </Text>
+            </ReachPressable>
+          </LinearGradient>
         </View>
       </View>
 
       <View style={styles.searchContainer}>
-        <BlurView intensity={20} tint="dark" style={styles.searchBlur}>
-          <View
-            style={[
-              styles.searchContent,
-              searchQuery.length > 0 && styles.searchContentActive,
+        <View style={styles.searchWrapper}>
+          <LinearGradient
+            colors={[
+              "rgba(255, 255, 255, 0.12)",
+              "rgba(255, 255, 255, 0.04)",
+              "rgba(255, 255, 255, 0.02)",
             ]}
+            style={styles.searchGradient}
           >
-            <Ionicons
-              name="search"
-              size={20}
-              color={
-                searchQuery.length > 0
-                  ? Colors.dark.primary
-                  : Colors.dark.textMuted
-              }
-            />
+            <View style={styles.searchIconContainer}>
+              <Ionicons
+                name="search"
+                size={20}
+                color={
+                  searchQuery.length > 0
+                    ? Colors.dark.primary
+                    : Colors.dark.textMuted
+                }
+              />
+            </View>
             <TextInput
               style={styles.searchInput}
               placeholder={
@@ -516,45 +714,54 @@ export default function AppsScreen() {
               value={searchQuery}
               onChangeText={setSearchQuery}
               returnKeyType="search"
-              clearButtonMode="while-editing"
+              clearButtonMode="never"
             />
             {searchQuery.length > 0 && (
-              <Pressable
+              <ReachPressable
                 onPress={() => setSearchQuery("")}
                 style={styles.clearSearchButton}
+                reachScale={1.1}
+                pressScale={0.9}
               >
                 <Ionicons
                   name="close-circle"
-                  size={20}
+                  size={18}
                   color={Colors.dark.primary}
                 />
-              </Pressable>
+              </ReachPressable>
             )}
-            <Pressable style={styles.filterButton}>
-              <Ionicons name="options" size={20} color={Colors.dark.primary} />
-            </Pressable>
-          </View>
-        </BlurView>
+          </LinearGradient>
+        </View>
 
         {searchQuery.length > 0 && (
-          <View style={styles.searchSummary}>
-            <Text style={styles.searchSummaryText}>
-              {viewMode === "apps"
-                ? `${filteredApps.length} ${
-                    filteredApps.length === 1 ? "app" : "apps"
-                  } found`
-                : `${filteredNotes.length} ${
-                    filteredNotes.length === 1 ? "note" : "notes"
-                  } found`}
-            </Text>
-            {searchQuery.length > 0 && (
-              <Pressable
+          <View style={styles.searchResults}>
+            <LinearGradient
+              colors={["rgba(0, 212, 255, 0.08)", "rgba(0, 255, 136, 0.04)"]}
+              style={styles.searchResultsGradient}
+            >
+              <Ionicons
+                name="checkmark-circle"
+                size={14}
+                color={Colors.dark.primary}
+              />
+              <Text style={styles.searchResultsText}>
+                {viewMode === "apps"
+                  ? `${filteredApps.length} ${
+                      filteredApps.length === 1 ? "app" : "apps"
+                    } found`
+                  : `${filteredNotes.length} ${
+                      filteredNotes.length === 1 ? "note" : "notes"
+                    } found`}
+              </Text>
+              <ReachPressable
                 onPress={() => setSearchQuery("")}
-                style={styles.clearAllButton}
+                style={styles.clearResultsButton}
+                reachScale={1.05}
+                pressScale={0.95}
               >
-                <Text style={styles.clearAllText}>Clear</Text>
-              </Pressable>
-            )}
+                <Text style={styles.clearResultsText}>Clear</Text>
+              </ReachPressable>
+            </LinearGradient>
           </View>
         )}
       </View>
@@ -690,207 +897,379 @@ const styles = StyleSheet.create({
   },
   star: {
     position: "absolute",
-    backgroundColor: "white",
+    backgroundColor: "rgba(255, 255, 255, 0.8)",
+    shadowColor: "#fff",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 2,
+  },
+  backgroundGlow: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 200,
   },
   header: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    marginBottom: 16,
+    paddingHorizontal: 20,
+    position: "relative",
+    overflow: "hidden",
+  },
+  headerBlur: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 20,
+  },
+  headerGradient: {
+    flex: 1,
+    borderRadius: 20,
   },
   headerContent: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 16,
+    marginBottom: 15,
+    zIndex: 1,
+    paddingTop: 8,
+  },
+  headerTextContainer: {
+    flex: 1,
   },
   addButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: Colors.dark.primary,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    overflow: "hidden",
+    shadowColor: Colors.dark.neonGreen,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  addButtonGradient: {
+    width: "100%",
+    height: "100%",
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: Colors.dark.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
+    borderWidth: 2,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+    borderRadius: 24,
   },
   toggleContainer: {
+    borderRadius: 16,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  toggleBackground: {
     flexDirection: "row",
-    backgroundColor: Colors.dark.surface,
-    borderRadius: 8,
-    padding: 4,
-    borderWidth: 1,
-    borderColor: Colors.dark.cardBorder,
+    borderRadius: 16,
+    padding: 6,
+    borderWidth: 1.5,
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
   toggleButton: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 6,
-    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    gap: 8,
+    flex: 1,
+    justifyContent: "center",
+    position: "relative",
+    overflow: "hidden",
   },
   toggleButtonActive: {
-    backgroundColor: Colors.dark.primary,
+    shadowColor: Colors.dark.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  toggleButtonGradient: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 12,
   },
   toggleText: {
     fontSize: 14,
-    fontWeight: "500",
+    fontWeight: "600",
     color: Colors.dark.textSecondary,
+    letterSpacing: 0.3,
   },
   toggleTextActive: {
     color: Colors.dark.background,
   },
   title: {
-    fontSize: 26,
-    fontWeight: "700",
+    fontSize: 28,
+    fontWeight: "800",
     color: Colors.dark.text,
+    letterSpacing: 0.5,
+    textShadowColor: "rgba(0, 212, 255, 0.3)",
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 8,
+    marginBottom: 8,
   },
   subtitle: {
-    fontSize: 13,
+    fontSize: 14,
     color: Colors.dark.textSecondary,
-    marginTop: 2,
+    fontWeight: "500",
+    lineHeight: 20,
+    letterSpacing: 0.2,
   },
   searchContainer: {
-    paddingHorizontal: 16,
-    marginBottom: 16,
+    paddingHorizontal: 20,
+    marginVertical: 15,
   },
-  searchBlur: {
+  searchWrapper: {
     borderRadius: 24,
     overflow: "hidden",
-    backgroundColor: "rgba(26, 26, 27, 0.6)",
-    borderWidth: 1,
-    borderColor: Colors.dark.inputBorder,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 3,
   },
-  searchContent: {
+  searchGradient: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
-    minHeight: 48,
+    borderWidth: 1.5,
+    borderColor: "rgba(255, 255, 255, 0.15)",
+    borderRadius: 24,
+    minHeight: 56,
+    paddingHorizontal: 4,
   },
-  searchContentActive: {
-    backgroundColor: "rgba(26, 26, 27, 0.9)",
+  searchIconContainer: {
+    width: 48,
+    height: 48,
+    alignItems: "center",
+    justifyContent: "center",
   },
   searchInput: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 16,
     color: Colors.dark.text,
+    fontWeight: "500",
     paddingVertical: 0,
     includeFontPadding: false,
+    paddingRight: 16,
   },
   categoryContainer: {
-    marginBottom: 16,
+    marginBottom: 18,
   },
-  categoryButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 24,
-    backgroundColor: "rgba(26, 26, 27, 0.6)",
-    borderWidth: 1,
-    borderColor: Colors.dark.border,
-  },
-  categoryButtonActive: {
-    backgroundColor: Colors.dark.primary + "20",
-    borderColor: Colors.dark.borderAccent,
-    shadowColor: Colors.dark.primary,
+  categoryChip: {
+    borderRadius: 20,
+    overflow: "hidden",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.08,
     shadowRadius: 6,
+    elevation: 2,
+  },
+  categoryChipActive: {
+    shadowColor: Colors.dark.primary,
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
     elevation: 4,
+  },
+  categoryChipGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 8,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+  },
+  categoryChipContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 8,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: 20,
   },
   categoryText: {
     fontSize: 14,
     color: Colors.dark.textSecondary,
-    fontWeight: "500",
+    fontWeight: "600",
+    letterSpacing: 0.2,
   },
   categoryTextActive: {
-    color: Colors.dark.primary,
-    fontWeight: "600",
+    color: Colors.dark.background,
+    fontWeight: "700",
+    letterSpacing: 0.3,
   },
   appsList: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
+    gap: 16,
   },
   appsRow: {
     justifyContent: "space-between",
-    marginBottom: 12,
+    marginBottom: 5,
   },
   appCardContainer: {
     width: "48%",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  appCardPressable: {
+    borderRadius: 20,
+    overflow: "hidden",
   },
   appCard: {
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: Colors.dark.cardBorder,
-    backgroundColor: Colors.dark.surface,
-    padding: 14,
-    minHeight: 130,
-    shadowColor: "rgba(0, 0, 0, 0.1)",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 4,
-    elevation: 2,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    padding: 15,
+    minHeight: 160,
+    justifyContent: "space-between",
+  },
+  appCardSecured: {
+    borderColor: "rgba(0, 255, 136, 0.3)",
+    shadowColor: Colors.dark.neonGreen,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
   },
   appCardHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 10,
-    gap: 10,
+    marginBottom: 16,
+    gap: 12,
+  },
+  appIconWrapper: {
+    position: "relative",
+  },
+  securityBadge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "rgba(0, 255, 136, 0.2)",
+    borderWidth: 2,
+    borderColor: Colors.dark.background,
+    alignItems: "center",
+    justifyContent: "center",
   },
   appCardInfo: {
     flex: 1,
   },
   appName: {
-    fontSize: 14,
-    fontWeight: "600",
+    fontSize: 16,
+    fontWeight: "700",
     color: Colors.dark.text,
-    marginBottom: 2,
+    marginBottom: 3,
+    letterSpacing: 0.2,
+  },
+  appMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
   },
   appCategory: {
-    fontSize: 12,
+    fontSize: 13,
     color: Colors.dark.textSecondary,
+    fontWeight: "500",
+    flex: 1,
+  },
+  supportedIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 5,
+  },
+  supportedDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: Colors.dark.neonGreen,
+  },
+  supportedText: {
+    fontSize: 10,
+    color: Colors.dark.neonGreen,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  appCardContent: {
+    flex: 1,
+    marginVertical: 8,
+  },
+  packageName: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+    fontStyle: "italic",
+    fontFamily: "monospace",
   },
   appCardFooter: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginTop: 8,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 255, 255, 0.05)",
   },
-  categoryBadge: {
-    backgroundColor: Colors.dark.primary + "20",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+  appCardActions: {
+    flex: 1,
   },
-  categoryBadgeText: {
-    fontSize: 10,
-    color: Colors.dark.primary,
-    fontWeight: "600",
-  },
-  actionButton: {
+  securedActionButton: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    gap: 6,
+    flex: 1,
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(0, 255, 136, 0.2)",
   },
-  actionText: {
-    fontSize: 10,
+  securedActionText: {
+    fontSize: 12,
+    color: Colors.dark.neonGreen,
+    fontWeight: "700",
+    textAlign: "center",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  addActionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    gap: 6,
+    flex: 1,
+    justifyContent: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+  addActionText: {
+    fontSize: 12,
     color: Colors.dark.primary,
     fontWeight: "600",
-  },
-  actionButtonSaved: {
-    backgroundColor: Colors.dark.neonGreen + "15",
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: 8,
-  },
-  packageName: {
-    fontSize: 9,
-    color: Colors.dark.textMuted,
-    marginTop: 6,
-    fontStyle: "italic",
   },
   emptyContainer: {
     flex: 1,
@@ -913,58 +1292,109 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   notesList: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
+    gap: 16,
   },
   noteCardContainer: {
-    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  noteCardPressable: {
+    borderRadius: 18,
+    overflow: "hidden",
   },
   noteCard: {
-    backgroundColor: Colors.dark.surface,
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: Colors.dark.cardBorder,
+    borderRadius: 18,
+    padding: 20,
+    borderWidth: 1.5,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    minHeight: 140,
+    justifyContent: "space-between",
   },
   noteHeader: {
     flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 16,
+    gap: 12,
+  },
+  noteIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: "center",
-    marginBottom: 8,
-    gap: 10,
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
   noteInfo: {
     flex: 1,
   },
-  noteTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: Colors.dark.text,
-    marginBottom: 2,
+  noteTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
   },
-  noteCategory: {
+  noteTitle: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    letterSpacing: 0.2,
+    flex: 1,
+  },
+  noteMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  categoryPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+  categoryPillText: {
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  noteTags: {
     fontSize: 12,
-    color: Colors.dark.textSecondary,
+    color: Colors.dark.textMuted,
+    fontWeight: "500",
   },
   notePreview: {
     fontSize: 14,
     color: Colors.dark.textSecondary,
-    lineHeight: 20,
-    marginBottom: 12,
+    lineHeight: 22,
+    flex: 1,
+    marginVertical: 12,
   },
   noteFooter: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 255, 255, 0.05)",
   },
-  noteDate: {
-    backgroundColor: Colors.dark.primary + "20",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+  noteFooterLeft: {
+    flex: 1,
+  },
+  noteFooterRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   noteDateText: {
-    fontSize: 10,
-    color: Colors.dark.primary,
-    fontWeight: "600",
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+    fontWeight: "500",
   },
   appCardUnsupported: {
     opacity: 0.7,
@@ -1039,35 +1469,50 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   clearSearchButton: {
-    padding: 4,
+    width: 48,
+    height: 48,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 24,
   },
-  filterButton: {
-    padding: 4,
+  searchResults: {
+    marginTop: 12,
+    borderRadius: 16,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  searchSummary: {
+  searchResultsGradient: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: Colors.dark.surface,
-    borderRadius: 12,
-    marginTop: 8,
+    paddingVertical: 12,
+    gap: 10,
     borderWidth: 1,
-    borderColor: Colors.dark.cardBorder,
+    borderColor: "rgba(0, 212, 255, 0.2)",
+    borderRadius: 16,
   },
-  searchSummaryText: {
-    fontSize: 13,
-    color: Colors.dark.textSecondary,
-    fontWeight: "500",
-  },
-  clearAllButton: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  clearAllText: {
+  searchResultsText: {
+    flex: 1,
     fontSize: 13,
     color: Colors.dark.primary,
     fontWeight: "600",
+    letterSpacing: 0.2,
+  },
+  clearResultsButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: "rgba(0, 212, 255, 0.1)",
+  },
+  clearResultsText: {
+    fontSize: 12,
+    color: Colors.dark.primary,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
 });

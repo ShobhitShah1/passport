@@ -647,7 +647,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 2,
     borderColor: Colors.dark.primary,
-    minHeight: 90,
+    minHeight: 50,
     textAlignVertical: "center",
     shadowColor: "#000000",
     shadowOffset: { width: 0, height: 2 },

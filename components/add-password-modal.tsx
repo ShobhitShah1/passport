@@ -75,7 +75,11 @@ const HolographicHeader = ({
           />
           <View style={styles.headerInfo}>
             <Text style={styles.holoAppName}>{app.name}</Text>
-            <Text style={styles.holoSubtitle}>{existingPassword ? 'Edit Secure Password' : 'Add Secure Password'}</Text>
+            <Text style={styles.holoSubtitle}>
+              {existingPassword
+                ? "Edit Secure Password"
+                : "Add Secure Password"}
+            </Text>
           </View>
         </View>
 
@@ -330,9 +334,14 @@ export default function AddPasswordModal({
   // Prefill data when editing existing password
   useEffect(() => {
     if (existingPassword && visible) {
-      const identifierType = existingPassword.email ? "email" : existingPassword.username ? "username" : "email";
-      const identifier = existingPassword.email || existingPassword.username || "";
-      
+      const identifierType = existingPassword.email
+        ? "email"
+        : existingPassword.username
+        ? "username"
+        : "email";
+      const identifier =
+        existingPassword.email || existingPassword.username || "";
+
       setFormData({
         identifierType,
         identifier,
@@ -341,7 +350,7 @@ export default function AddPasswordModal({
         url: existingPassword.url || "",
         notes: existingPassword.notes || "",
       });
-      
+
       setCustomFields(existingPassword.customFields || []);
     } else if (visible && !existingPassword) {
       // Reset form for new password
@@ -551,10 +560,10 @@ export default function AddPasswordModal({
 
   const handleSave = async () => {
     // For editing, we need the app info from existing password or the provided app
-    const appInfo = existingPassword ? 
-      { name: existingPassword.appName, id: existingPassword.appId } : 
-      app;
-      
+    const appInfo = existingPassword
+      ? { name: existingPassword.appName, id: existingPassword.appId }
+      : app;
+
     if (!appInfo) return;
 
     if (!formData.password.trim()) {
@@ -642,13 +651,20 @@ export default function AddPasswordModal({
         if (passwordStore.isAuthenticated) {
           if (existingPassword) {
             // Update existing password
-            await passwordStore.updatePassword(existingPassword.id, passwordEntry);
+            await passwordStore.updatePassword(
+              existingPassword.id,
+              passwordEntry
+            );
           } else {
             // Add new password
             await passwordStore.addPassword(passwordEntry);
           }
           savedToPasswordStore = true;
-          console.log(existingPassword ? "Successfully updated password in passwordStore" : "Successfully saved to passwordStore");
+          console.log(
+            existingPassword
+              ? "Successfully updated password in passwordStore"
+              : "Successfully saved to passwordStore"
+          );
         }
       } catch (storeError) {
         console.warn(
@@ -691,7 +707,7 @@ export default function AddPasswordModal({
           let updatedPasswords;
           if (existingPassword) {
             // Update existing password in the array
-            updatedPasswords = state.passwords.map(pwd => 
+            updatedPasswords = state.passwords.map((pwd) =>
               pwd.id === existingPassword.id ? legacyPassword : pwd
             );
           } else {
@@ -699,7 +715,11 @@ export default function AddPasswordModal({
             updatedPasswords = [...state.passwords, legacyPassword];
           }
           await savePasswords(updatedPasswords, state.masterPassword);
-          console.log(existingPassword ? "Manually updated in secure storage as fallback" : "Manually saved to secure storage as fallback");
+          console.log(
+            existingPassword
+              ? "Manually updated in secure storage as fallback"
+              : "Manually saved to secure storage as fallback"
+          );
         } catch (manualSaveError) {
           console.error("Manual save also failed:", manualSaveError);
           // Still show success as we saved to context
@@ -708,7 +728,9 @@ export default function AddPasswordModal({
 
       Alert.alert(
         "NEURAL LINK SUCCESS",
-        `Quantum encrypted data ${existingPassword ? 'updated' : 'stored'} for ${appInfo.name} ⚡`
+        `Quantum encrypted data ${
+          existingPassword ? "updated" : "stored"
+        } for ${appInfo.name} ⚡`
       );
 
       setFormData({
@@ -755,7 +777,18 @@ export default function AddPasswordModal({
             },
           ]}
         >
-          <HolographicHeader app={app || { name: existingPassword?.appName || '', id: existingPassword?.appId || '', packageName: '', isSupported: true }} existingPassword={existingPassword} onClose={onClose} />
+          <HolographicHeader
+            app={
+              app || {
+                name: existingPassword?.appName || "",
+                id: existingPassword?.appId || "",
+                packageName: "",
+                isSupported: true,
+              }
+            }
+            existingPassword={existingPassword}
+            onClose={onClose}
+          />
 
           <ScrollView
             style={styles.form}
@@ -919,7 +952,11 @@ export default function AddPasswordModal({
                 label="Network Address (Optional)"
                 value={formData.url}
                 onChangeText={handleUrlChange}
-                placeholder={`https://${(app?.name || existingPassword?.appName || 'example').toLowerCase()}.com`}
+                placeholder={`https://${(
+                  app?.name ||
+                  existingPassword?.appName ||
+                  "example"
+                ).toLowerCase()}.com`}
                 leftIcon="globe-outline"
                 keyboardType="url"
               />
@@ -1122,7 +1159,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 0,
   },
   holographicHeader: {
-    paddingVertical: 24,
+    paddingVertical: 10,
     borderBottomWidth: 2,
     borderBottomColor: Colors.dark.primary,
     backgroundColor: Colors.dark.surface,
@@ -1296,9 +1333,9 @@ const styles = StyleSheet.create({
   fieldTypeGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 16,
+    gap: 12,
     marginBottom: 24,
-    justifyContent: "space-between",
+    justifyContent: "flex-start",
   },
   fieldTypeOption: {
     width: "48%",
@@ -1343,7 +1380,7 @@ const styles = StyleSheet.create({
     flex: 2,
   },
   credentialTypeSection: {
-    marginBottom: 20,
+    // marginBottom: 20,
   },
   credentialTypeLabel: {
     fontSize: 14,
@@ -1353,12 +1390,11 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   typeScroll: {
-    marginBottom: 4,
+    marginTop: 3,
   },
   credentialTypeOptions: {
     flexDirection: "row",
     gap: 12,
-    paddingRight: 24,
     alignItems: "center",
   },
   credentialTypeOption: {
@@ -1392,6 +1428,6 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   notesInput: {
-    minHeight: 100,
+    // minHeight: 100,
   },
 });

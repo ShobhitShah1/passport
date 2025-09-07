@@ -117,20 +117,20 @@ export default function Input({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 12,
+    // marginBottom: 12,
   },
   label: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "600",
     color: Colors.dark.text,
-    marginBottom: 6,
+    marginBottom: 15,
   },
   labelError: {
     color: Colors.dark.error,
   },
   inputContainer: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     backgroundColor: Colors.dark.surface,
     borderRadius: 14,
     borderWidth: 1,
@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     color: Colors.dark.text,
-    paddingVertical: 12,
+    // paddingVertical: 12,
   },
   inputWithLeftIcon: {
     marginLeft: 10,
@@ -160,10 +160,13 @@ const styles = StyleSheet.create({
   },
   leftIcon: {
     marginRight: 0,
+    marginTop: 10,
   },
   rightIcon: {
     padding: 4,
     marginLeft: 0,
+    marginTop: 8,
+    alignSelf: "flex-start",
   },
   helperText: {
     fontSize: 11,

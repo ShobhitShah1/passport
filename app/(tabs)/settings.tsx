@@ -152,10 +152,24 @@ export default function SettingsTabScreen() {
 
   const checkBiometricAvailability = async () => {
     try {
-      const isAvailable = await LocalAuthentication.hasHardwareAsync();
-      setBiometricAvailable(isAvailable);
+      const compatible = await LocalAuthentication.hasHardwareAsync();
+      if (!compatible) {
+        setBiometricAvailable(false);
+        return;
+      }
+
+      const enrolled = await LocalAuthentication.isEnrolledAsync();
+      if (!enrolled) {
+        setBiometricAvailable(false);
+        return;
+      }
+
+      const types =
+        await LocalAuthentication.supportedAuthenticationTypesAsync();
+      setBiometricAvailable(types.length > 0);
     } catch (error: any) {
       console.error("Error checking biometric availability:", error);
+      setBiometricAvailable(false);
     }
   };
 
@@ -1247,7 +1261,7 @@ export default function SettingsTabScreen() {
             <Text style={styles.sectionTitle}>Interface Control</Text>
           </View>
           <View style={styles.settingsGroup}>
-            <SettingRow
+            {/* <SettingRow
               title="Dark Mode"
               subtitle="Space-themed dark interface"
               icon="moon"
@@ -1257,7 +1271,7 @@ export default function SettingsTabScreen() {
                   updateSetting("darkModeEnabled", value);
               }}
               disabled={isLoading}
-            />
+            /> */}
             <SettingRow
               title="Default Password Length"
               subtitle={`${settings.defaultPasswordLength} characters`}
@@ -1310,7 +1324,7 @@ export default function SettingsTabScreen() {
             </LinearGradient>
           </View>
 
-          <View style={styles.settingsGroup}>
+          {/* <View style={styles.settingsGroup}>
             <SettingRow
               title="Security Notifications"
               subtitle="Weak password and breach alerts"
@@ -1342,10 +1356,10 @@ export default function SettingsTabScreen() {
               }}
               disabled={isLoading}
             />
-          </View>
+          </View> */}
         </View>
 
-        <View style={styles.section}>
+        {/* <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Ionicons
               name="phone-portrait"
@@ -1430,7 +1444,7 @@ export default function SettingsTabScreen() {
               disabled={isLoading}
             />
           </View>
-        </View>
+        </View> */}
 
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -1476,14 +1490,14 @@ export default function SettingsTabScreen() {
               onPress={handleDeleteAllData}
               disabled={isLoading}
             />
-            <ActionButton
+            {/* <ActionButton
               title="Review App"
               subtitle="Rate on store"
               icon="star"
               color={Colors.dark.warning}
               onPress={() => Alert.alert("Coming Soon!")}
               disabled={isLoading}
-            />
+            /> */}
           </View>
         </View>
 
@@ -1507,11 +1521,6 @@ export default function SettingsTabScreen() {
               <Text style={styles.appVersion}>Passport v1.0.0</Text>
             </LinearGradient>
           </ReachPressable>
-          <Text style={styles.footerText}>
-            {isLoading
-              ? "Syncing with the mothership..."
-              : "Built for space explorers 🚀"}
-          </Text>
         </View>
       </ScrollView>
 
@@ -1727,11 +1736,10 @@ const styles = StyleSheet.create({
   footer: {
     alignItems: "center",
     paddingVertical: 32,
-    marginTop: 20,
   },
   footerBadge: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.1)",
@@ -1741,12 +1749,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: Colors.dark.text,
-    opacity: 0.8,
-  },
-  footerText: {
-    fontSize: 14,
-    color: Colors.dark.textSecondary,
-    fontStyle: "italic",
+    opacity: 1,
   },
   disabledRow: {
     opacity: 0.5,

@@ -4,7 +4,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as LocalAuthentication from "expo-local-authentication";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { Pressable, StyleSheet, Text, Vibration, View } from "react-native";
+import { StyleSheet, Text, Vibration, View } from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -19,17 +19,13 @@ import Svg, {
   Stop,
   LinearGradient as SvgLinearGradient,
 } from "react-native-svg";
-
 import PinKeypad from "@/components/ui/PinKeypad";
 import { ReachPressable } from "@/components/ui/ReachPressable";
 import Colors from "@/constants/Colors";
 import { useAppContext } from "@/hooks/useAppContext";
 import { loadSettings } from "@/services/storage/secureStorage";
 
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const AnimatedView = Animated.createAnimatedComponent(View);
-
-// PIN will be validated against stored master PIN
 
 const StarField = React.memo(() => {
   const stars = React.useMemo(
@@ -64,7 +60,6 @@ const StarField = React.memo(() => {
   );
 });
 
-// Biometric Authentication Button Component
 const BiometricAuthButton = React.memo(
   ({
     icon,

@@ -1,65 +1,58 @@
-import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Dimensions,
-} from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
-import Colors from '@/constants/Colors';
-import { SecureNote } from '@/types';
+import { SecureNote } from "@/types";
+import { LinearGradient } from "expo-linear-gradient";
+import React from "react";
+import { Dimensions, StyleSheet, Text, View } from "react-native";
 
 interface WidgetPreviewProps {
   notes: SecureNote[];
-  widgetTheme?: 'cyber' | 'holographic' | 'neon' | 'minimal';
+  widgetTheme?: "cyber" | "holographic" | "neon" | "minimal";
   maxNotesCount?: number;
   isSmall?: boolean;
 }
 
-const { width: screenWidth } = Dimensions.get('window');
+const { width: screenWidth } = Dimensions.get("window");
 
-export function WidgetPreview({ 
-  notes = [], 
-  widgetTheme = 'holographic',
+export function WidgetPreview({
+  notes = [],
+  widgetTheme = "holographic",
   maxNotesCount = 5,
-  isSmall = false 
+  isSmall = false,
 }: WidgetPreviewProps) {
   const displayNotes = notes.slice(0, maxNotesCount);
-  
+
   // Theme configurations matching the actual widget
   const themes = {
     holographic: {
-      background: ['#0d1117', '#1a1f36', '#0d1117'],
-      primaryColor: '#00d4ff',
-      secondaryColor: '#00ff88',
-      textColor: '#ffffff',
-      accentColor: '#8b5cf6',
-      borderColor: '#00d4ff',
+      background: ["#0d1117", "#1a1f36", "#0d1117"],
+      primaryColor: "#00d4ff",
+      secondaryColor: "#00ff88",
+      textColor: "#ffffff",
+      accentColor: "#8b5cf6",
+      borderColor: "#00d4ff",
     },
     cyber: {
-      background: ['#0a0a0a', '#1a1a2e', '#0a0a0a'],
-      primaryColor: '#00ff41',
-      secondaryColor: '#ff0080',
-      textColor: '#ffffff',
-      accentColor: '#00ff41',
-      borderColor: '#00ff41',
+      background: ["#0a0a0a", "#1a1a2e", "#0a0a0a"],
+      primaryColor: "#00ff41",
+      secondaryColor: "#ff0080",
+      textColor: "#ffffff",
+      accentColor: "#00ff41",
+      borderColor: "#00ff41",
     },
     neon: {
-      background: ['#0f0f0f', '#2d1b69', '#0f0f0f'],
-      primaryColor: '#ff006e',
-      secondaryColor: '#8338ec',
-      textColor: '#ffffff',
-      accentColor: '#3a86ff',
-      borderColor: '#ff006e',
+      background: ["#0f0f0f", "#2d1b69", "#0f0f0f"],
+      primaryColor: "#ff006e",
+      secondaryColor: "#8338ec",
+      textColor: "#ffffff",
+      accentColor: "#3a86ff",
+      borderColor: "#ff006e",
     },
     minimal: {
-      background: ['#1e1e1e', '#2a2a2a', '#1e1e1e'],
-      primaryColor: '#ffffff',
-      secondaryColor: '#888888',
-      textColor: '#ffffff',
-      accentColor: '#0066cc',
-      borderColor: '#333333',
+      background: ["#1e1e1e", "#2a2a2a", "#1e1e1e"],
+      primaryColor: "#ffffff",
+      secondaryColor: "#888888",
+      textColor: "#ffffff",
+      accentColor: "#0066cc",
+      borderColor: "#333333",
     },
   };
 
@@ -70,15 +63,22 @@ export function WidgetPreview({
       <View style={styles.smallContainer}>
         <LinearGradient
           colors={currentTheme.background as any}
-          style={[styles.smallWidget, { borderColor: currentTheme.borderColor }]}
+          style={[
+            styles.smallWidget,
+            { borderColor: currentTheme.borderColor },
+          ]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
         >
           <Text style={styles.smallIcon}>🔒</Text>
-          <Text style={[styles.smallCount, { color: currentTheme.primaryColor }]}>
+          <Text
+            style={[styles.smallCount, { color: currentTheme.primaryColor }]}
+          >
             {notes.length}
           </Text>
-          <Text style={[styles.smallLabel, { color: currentTheme.secondaryColor }]}>
+          <Text
+            style={[styles.smallLabel, { color: currentTheme.secondaryColor }]}
+          >
             NOTES
           </Text>
         </LinearGradient>
@@ -90,20 +90,37 @@ export function WidgetPreview({
     <View style={styles.previewContainer}>
       <LinearGradient
         colors={currentTheme.background as any}
-        style={[styles.widgetPreview, { borderColor: currentTheme.borderColor }]}
+        style={[
+          styles.widgetPreview,
+          { borderColor: currentTheme.borderColor },
+        ]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       >
         {/* Header */}
-        <View style={[styles.header, { borderBottomColor: currentTheme.primaryColor }]}>
+        <View
+          style={[
+            styles.header,
+            { borderBottomColor: currentTheme.primaryColor },
+          ]}
+        >
           <View style={styles.headerLeft}>
             <Text style={styles.headerIcon}>🔒</Text>
-            <Text style={[styles.headerTitle, { color: currentTheme.primaryColor }]}>
+            <Text
+              style={[styles.headerTitle, { color: currentTheme.primaryColor }]}
+            >
               SECURE NOTES
             </Text>
           </View>
-          <View style={[styles.notesCount, { backgroundColor: currentTheme.accentColor }]}>
-            <Text style={[styles.notesCountText, { color: currentTheme.textColor }]}>
+          <View
+            style={[
+              styles.notesCount,
+              { backgroundColor: currentTheme.accentColor },
+            ]}
+          >
+            <Text
+              style={[styles.notesCountText, { color: currentTheme.textColor }]}
+            >
               {notes.length}
             </Text>
           </View>
@@ -113,33 +130,50 @@ export function WidgetPreview({
         <View style={styles.notesList}>
           {displayNotes.length > 0 ? (
             displayNotes.map((note, index) => (
-              <View 
+              <View
                 key={note.id}
                 style={[
                   styles.noteItem,
-                  { 
+                  {
                     marginBottom: index < displayNotes.length - 1 ? 6 : 0,
-                    borderLeftColor: currentTheme.accentColor 
-                  }
+                    borderLeftColor: currentTheme.accentColor,
+                  },
                 ]}
               >
-                <Text 
+                <Text
                   style={[styles.noteTitle, { color: currentTheme.textColor }]}
                   numberOfLines={1}
                 >
-                  {note.title.length > 20 ? `${note.title.slice(0, 20)}...` : note.title}
+                  {note.title.length > 20
+                    ? `${note.title.slice(0, 20)}...`
+                    : note.title}
                 </Text>
-                <Text 
-                  style={[styles.noteContent, { color: currentTheme.secondaryColor }]}
+                <Text
+                  style={[
+                    styles.noteContent,
+                    { color: currentTheme.secondaryColor },
+                  ]}
                   numberOfLines={1}
                 >
-                  {note.content.length > 30 ? `${note.content.slice(0, 30)}...` : note.content}
+                  {note.content.length > 30
+                    ? `${note.content.slice(0, 30)}...`
+                    : note.content}
                 </Text>
                 <View style={styles.noteFooter}>
-                  <Text style={[styles.noteCategory, { color: currentTheme.primaryColor }]}>
+                  <Text
+                    style={[
+                      styles.noteCategory,
+                      { color: currentTheme.primaryColor },
+                    ]}
+                  >
                     {note.category.toUpperCase()}
                   </Text>
-                  <Text style={[styles.noteDate, { color: currentTheme.secondaryColor }]}>
+                  <Text
+                    style={[
+                      styles.noteDate,
+                      { color: currentTheme.secondaryColor },
+                    ]}
+                  >
                     {new Date(note.updatedAt).toLocaleDateString()}
                   </Text>
                 </View>
@@ -148,10 +182,20 @@ export function WidgetPreview({
           ) : (
             <View style={styles.emptyState}>
               <Text style={styles.emptyIcon}>🔐</Text>
-              <Text style={[styles.emptyText, { color: currentTheme.secondaryColor }]}>
+              <Text
+                style={[
+                  styles.emptyText,
+                  { color: currentTheme.secondaryColor },
+                ]}
+              >
                 NO SECURE NOTES
               </Text>
-              <Text style={[styles.emptySubtext, { color: currentTheme.secondaryColor }]}>
+              <Text
+                style={[
+                  styles.emptySubtext,
+                  { color: currentTheme.secondaryColor },
+                ]}
+              >
                 Create your first note
               </Text>
             </View>
@@ -159,8 +203,12 @@ export function WidgetPreview({
         </View>
 
         {/* Footer */}
-        <View style={[styles.footer, { borderTopColor: currentTheme.primaryColor }]}>
-          <Text style={[styles.footerText, { color: currentTheme.secondaryColor }]}>
+        <View
+          style={[styles.footer, { borderTopColor: currentTheme.primaryColor }]}
+        >
+          <Text
+            style={[styles.footerText, { color: currentTheme.secondaryColor }]}
+          >
             TAP TO OPEN PASSPORT
           </Text>
         </View>
@@ -173,7 +221,7 @@ const styles = StyleSheet.create({
   previewContainer: {
     width: screenWidth * 0.8,
     height: 200,
-    alignSelf: 'center',
+    alignSelf: "center",
     marginVertical: 16,
   },
   widgetPreview: {
@@ -181,19 +229,19 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 2,
     padding: 12,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    backgroundColor: "rgba(0, 0, 0, 0.3)",
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingBottom: 8,
     marginBottom: 8,
     borderBottomWidth: 1,
   },
   headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   headerIcon: {
     fontSize: 16,
@@ -201,7 +249,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 12,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     letterSpacing: 1,
   },
   notesCount: {
@@ -211,20 +259,20 @@ const styles = StyleSheet.create({
   },
   notesCountText: {
     fontSize: 10,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   notesList: {
     flex: 1,
   },
   noteItem: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
     borderRadius: 6,
     padding: 8,
     borderLeftWidth: 2,
   },
   noteTitle: {
     fontSize: 11,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 2,
   },
   noteContent: {
@@ -233,20 +281,20 @@ const styles = StyleSheet.create({
     lineHeight: 12,
   },
   noteFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   noteCategory: {
     fontSize: 8,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     letterSpacing: 0.5,
   },
   noteDate: {
     fontSize: 8,
   },
   footer: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingTop: 8,
     marginTop: 8,
     borderTopWidth: 1,
@@ -258,8 +306,8 @@ const styles = StyleSheet.create({
   },
   emptyState: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     opacity: 0.6,
   },
   emptyIcon: {
@@ -268,7 +316,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 12,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     letterSpacing: 1,
     marginBottom: 4,
   },
@@ -280,16 +328,16 @@ const styles = StyleSheet.create({
   smallContainer: {
     width: 120,
     height: 120,
-    alignSelf: 'center',
+    alignSelf: "center",
     marginVertical: 16,
   },
   smallWidget: {
     flex: 1,
     borderRadius: 16,
     borderWidth: 2,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.3)",
   },
   smallIcon: {
     fontSize: 24,
@@ -297,7 +345,7 @@ const styles = StyleSheet.create({
   },
   smallCount: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 2,
   },
   smallLabel: {

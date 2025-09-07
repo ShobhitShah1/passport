@@ -1,35 +1,31 @@
-import { Ionicons } from "@expo/vector-icons";
+import Colors from "@/constants/Colors";
+import { useAppContext } from "@/hooks/useAppContext";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { StyleSheet, Text, View, Dimensions } from "react-native";
+import { Dimensions, StyleSheet, Text, View } from "react-native";
 import Animated, {
+  cancelAnimation,
   Easing,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
   withSequence,
-  withTiming,
   withSpring,
-  cancelAnimation,
+  withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, {
-  Circle,
   Defs,
   Polygon,
   Stop,
   LinearGradient as SvgLinearGradient,
 } from "react-native-svg";
 
-import Colors from "@/constants/Colors";
-import { useAppContext } from "@/hooks/useAppContext";
-
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
 const AnimatedView = Animated.createAnimatedComponent(View);
 
-// Holographic Hexagon Component
 const HolographicHexagon = ({
   style,
   size,
@@ -88,7 +84,6 @@ const HolographicHexagon = ({
   );
 };
 
-// Single Floating Particle Component
 const FloatingParticle = React.memo(({ particle }: { particle: any }) => {
   const animatedStyle = useAnimatedStyle(() => {
     const moveX = withRepeat(
@@ -141,7 +136,6 @@ const FloatingParticle = React.memo(({ particle }: { particle: any }) => {
   );
 });
 
-// Floating Particles Container
 const FloatingParticles = React.memo(() => {
   const particles = React.useMemo(
     () =>

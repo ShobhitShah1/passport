@@ -26,73 +26,61 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AddPasswordModal from "../../components/add-password-modal";
 
-const SpaceHeader = React.memo(
-  ({
-    userName,
-    totalPasswords,
-    totalNotes,
-  }: {
-    userName?: string;
-    totalPasswords: number;
-    totalNotes: number;
-  }) => {
-    const currentHour = new Date().getHours();
-    const currentDate = new Date();
+const SpaceHeader = React.memo(({ userName }: { userName?: string }) => {
+  const currentHour = new Date().getHours();
+  const currentDate = new Date();
 
-    const getGreeting = () => {
-      if (currentHour < 12) return "MORNING";
-      if (currentHour < 17) return "AFTERNOON";
-      return "EVENING";
-    };
+  const getGreeting = () => {
+    if (currentHour < 12) return "MORNING";
+    if (currentHour < 17) return "AFTERNOON";
+    return "EVENING";
+  };
 
-    const getUserGreeting = () => {
-      if (userName) return `Welcome back, ${userName}`;
-      return "Welcome, Space Voyager";
-    };
+  const getUserGreeting = () => {
+    if (userName) return `Welcome back, ${userName}`;
+    return "Welcome, Stranger 👋";
+  };
 
-    const formatDate = () => {
-      return currentDate.toLocaleDateString("en-US", {
-        weekday: "long",
-        month: "short",
-        day: "numeric",
-      });
-    };
+  const formatDate = () => {
+    return currentDate.toLocaleDateString("en-US", {
+      weekday: "long",
+      month: "short",
+      day: "numeric",
+    });
+  };
 
-    return (
-      <View style={styles.spaceHeader}>
-        {/* Background Glow Effects */}
-        <View style={styles.headerGlow} />
+  return (
+    <View style={styles.spaceHeader}>
+      {/* Background Glow Effects */}
+      <View style={styles.headerGlow} />
 
-        {/* Main Header Content */}
-        <View style={styles.headerMainContainer}>
-          <View style={styles.headerLeft}>
-            {/* Greeting Section */}
-            <View style={styles.greetingContainer}>
-              <Text style={styles.greetingTime}>GOOD {getGreeting()}</Text>
-              <Text style={styles.greetingDate}>{formatDate()}</Text>
-            </View>
-
-            {/* Welcome Message */}
-            <Text style={styles.welcomeMessage}>{getUserGreeting()}</Text>
-            <Text style={styles.vaultSubtitle}>
-              🛡️ Your digital fortress is secure
-            </Text>
+      {/* Main Header Content */}
+      <View style={styles.headerMainContainer}>
+        <View style={styles.headerLeft}>
+          {/* Greeting Section */}
+          <View style={styles.greetingContainer}>
+            <Text style={styles.greetingTime}>GOOD {getGreeting()}</Text>
+            <Text style={styles.greetingDate}>{formatDate()}</Text>
           </View>
+
+          {/* Welcome Message */}
+          <Text style={styles.welcomeMessage}>{getUserGreeting()}</Text>
+          <Text style={styles.vaultSubtitle}>
+            🛡️ Your digital fortress is secure
+          </Text>
         </View>
       </View>
-    );
-  }
-);
+    </View>
+  );
+});
 
 const SpaceQuickActions = React.memo(
   ({
     totalPasswords,
     totalNotes,
-    securityScore,
   }: {
     totalPasswords: number;
     totalNotes: number;
-    securityScore: number;
   }) => {
     const actions = [
       {
@@ -994,11 +982,7 @@ export default function VaultScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <SpaceHeader
-          userName={undefined}
-          totalPasswords={totalPasswords}
-          totalNotes={state.secureNotes.length}
-        />
+        <SpaceHeader userName={undefined} />
 
         <View style={styles.statsContainer}>
           <View style={styles.statCard}>
@@ -1059,7 +1043,6 @@ export default function VaultScreen() {
           <SpaceQuickActions
             totalPasswords={totalPasswords}
             totalNotes={state.secureNotes.length}
-            securityScore={securityScore}
           />
         )}
 

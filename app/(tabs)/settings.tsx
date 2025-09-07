@@ -16,7 +16,6 @@ import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system";
 import { LinearGradient } from "expo-linear-gradient";
 import * as LocalAuthentication from "expo-local-authentication";
-import * as MediaLibrary from "expo-media-library";
 import { router } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
@@ -27,7 +26,6 @@ import {
   Switch,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -641,14 +639,19 @@ export default function SettingsTabScreen() {
       // First verify if the provided password is correct by checking against stored hash
       // OR by trying to decrypt the data directly
       console.log("Verifying master password for import...");
-      
+
       // Try to verify against current stored password first
       let isPasswordValid = false;
       try {
         isPasswordValid = await verifyMasterPassword(masterPassword);
-        console.log("Password verification against stored hash:", isPasswordValid);
+        console.log(
+          "Password verification against stored hash:",
+          isPasswordValid
+        );
       } catch (verifyError) {
-        console.log("Could not verify against stored hash, will try direct decryption");
+        console.log(
+          "Could not verify against stored hash, will try direct decryption"
+        );
         // If verification fails, we'll let the importEncryptedData function try to decrypt
         // and catch the specific decryption error
       }
@@ -780,15 +783,16 @@ export default function SettingsTabScreen() {
       }
     } catch (error: any) {
       console.error("Import error:", error);
-      
+
       // Check if it's likely a decryption/password error
       const errorMessage = error?.message?.toLowerCase() || "";
-      const isPasswordError = errorMessage.includes("decrypt") || 
-                             errorMessage.includes("cipher") || 
-                             errorMessage.includes("key") ||
-                             errorMessage.includes("invalid") ||
-                             errorMessage.includes("corrupt");
-      
+      const isPasswordError =
+        errorMessage.includes("decrypt") ||
+        errorMessage.includes("cipher") ||
+        errorMessage.includes("key") ||
+        errorMessage.includes("invalid") ||
+        errorMessage.includes("corrupt");
+
       if (isPasswordError) {
         Alert.alert(
           "❌ Wrong Master Password",

@@ -1,3 +1,7 @@
+import { HexGrid, ParticleSystem } from "@/components/HolographicBackground";
+import { ReachPressable } from "@/components/ui/ReachPressable";
+import Colors from "@/constants/Colors";
+import { useNavigationOptimization } from "@/hooks/useNavigationOptimization";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useState } from "react";
@@ -27,11 +31,6 @@ import Svg, {
   Stop,
   LinearGradient as SvgLinearGradient,
 } from "react-native-svg";
-
-import { HexGrid, ParticleSystem } from "@/components/HolographicBackground";
-import { ReachPressable } from "@/components/ui/ReachPressable";
-import Colors from "@/constants/Colors";
-import { useNavigationOptimization } from "@/hooks/useNavigationOptimization";
 
 export default function GeneratorScreen() {
   const [password, setPassword] = useState("");

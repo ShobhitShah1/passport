@@ -1,37 +1,25 @@
-import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
-import * as LocalAuthentication from "expo-local-authentication";
-import { LinearGradient } from "expo-linear-gradient";
-import React, { useMemo, useState, useEffect } from "react";
+import PinKeypad from "@/components/ui/PinKeypad";
+import { ReachPressable } from "@/components/ui/ReachPressable";
+import Colors from "@/constants/Colors";
 import {
-  Alert,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+  loadSettings,
+  saveSettings,
+  setupMasterPassword,
+} from "@/services/storage/secureStorage";
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import * as LocalAuthentication from "expo-local-authentication";
+import { router } from "expo-router";
+import React, { useEffect, useMemo, useState } from "react";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
-  withTiming,
   withSequence,
+  withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import Button from "@/components/ui/Button";
-import PinKeypad from "@/components/ui/PinKeypad";
-import { ReachPressable } from "@/components/ui/ReachPressable";
-import {
-  setupMasterPassword,
-  saveSettings,
-  loadSettings,
-} from "@/services/storage/secureStorage";
-
-import Colors from "@/constants/Colors";
-
-// --- Static Background Components ---
 const ParallaxStarfield = React.memo(() => {
   const stars = useMemo(
     () =>
@@ -66,7 +54,6 @@ const ParallaxStarfield = React.memo(() => {
   );
 });
 
-// Biometric Setup Component
 const BiometricSetup = React.memo(
   ({
     biometricIcon,
@@ -161,7 +148,6 @@ const BiometricSetup = React.memo(
   }
 );
 
-// --- Main Setup Screen ---
 export default function SetupScreen() {
   const [pin, setPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
@@ -236,7 +222,7 @@ export default function SetupScreen() {
         const newPin = pin + digit;
         setPin(newPin);
         setError("");
-        
+
         // Auto-continue when PIN is complete
         if (newPin.length === 4) {
           setTimeout(() => {
@@ -289,7 +275,6 @@ export default function SetupScreen() {
       }, 300);
     }
   };
-
 
   const handleSetup = async (masterPin: string) => {
     setIsLoading(true);
@@ -393,7 +378,6 @@ export default function SetupScreen() {
             />
           )}
         </Animated.View>
-
       </View>
     </View>
   );

@@ -28,7 +28,6 @@ import AddPasswordModal from "../../components/add-password-modal";
 
 const AnimatedView = Animated.createAnimatedComponent(View);
 
-// Twinkling stars background component
 const TwinklingStar = React.memo(
   ({ style, size }: { style: object; size: number }) => {
     return (
@@ -68,7 +67,6 @@ const ParallaxStarfield = React.memo(() => {
   );
 });
 
-// App card component
 const AppCard = React.memo(
   ({
     app,
@@ -196,7 +194,6 @@ const AppCard = React.memo(
   }
 );
 
-// Secure Note card component
 const SecureNoteCard = ({
   note,
   index,
@@ -249,7 +246,6 @@ const SecureNoteCard = ({
   );
 };
 
-// Loading spinner component
 const LoadingSpinner = React.memo(() => {
   const rotation = useSharedValue(0);
 
@@ -272,7 +268,6 @@ const LoadingSpinner = React.memo(() => {
   );
 });
 
-// Category filter component
 const CategoryFilter = ({
   categories,
   selectedCategory,
@@ -327,7 +322,6 @@ export default function AppsScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Load installed apps on component mount
   useEffect(() => {
     loadInstalledApps();
   }, []);
@@ -346,7 +340,6 @@ export default function AppsScreen() {
     }
   };
 
-  // Filter apps based on search and category
   const filteredApps = useMemo(() => {
     let filtered = installedApps;
 
@@ -365,7 +358,6 @@ export default function AppsScreen() {
     return filtered;
   }, [searchQuery, selectedCategory, installedApps]);
 
-  // Filter secure notes based on search
   const filteredNotes = useMemo(() => {
     let filtered = state.secureNotes || [];
 
@@ -386,7 +378,6 @@ export default function AppsScreen() {
     );
   }, [searchQuery, state.secureNotes]);
 
-  // Check which apps have passwords
   const appsWithPasswords = useMemo(() => {
     const passwordAppIds = new Set(state.passwords.map((p) => p.appId));
     const passwordPackageNames = new Set(
@@ -418,7 +409,6 @@ export default function AppsScreen() {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <ParallaxStarfield />
 
-      {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <View>
@@ -444,7 +434,6 @@ export default function AppsScreen() {
           )}
         </View>
 
-        {/* View Mode Toggle */}
         <View style={styles.toggleContainer}>
           <Pressable
             onPress={() => setViewMode("apps")}
@@ -499,7 +488,6 @@ export default function AppsScreen() {
         </View>
       </View>
 
-      {/* Enhanced Search Bar */}
       <View style={styles.searchContainer}>
         <BlurView intensity={20} tint="dark" style={styles.searchBlur}>
           <View
@@ -548,7 +536,6 @@ export default function AppsScreen() {
           </View>
         </BlurView>
 
-        {/* Search Results Summary */}
         {searchQuery.length > 0 && (
           <View style={styles.searchSummary}>
             <Text style={styles.searchSummaryText}>
@@ -572,7 +559,6 @@ export default function AppsScreen() {
         )}
       </View>
 
-      {/* Category Filter - Only show for apps */}
       {viewMode === "apps" && !loading && (
         <CategoryFilter
           categories={[
@@ -588,7 +574,6 @@ export default function AppsScreen() {
         />
       )}
 
-      {/* Apps List */}
       {viewMode === "apps" &&
         (loading ? (
           <LoadingSpinner />
@@ -654,7 +639,6 @@ export default function AppsScreen() {
           />
         ))}
 
-      {/* Notes List */}
       {viewMode === "notes" && (
         <FlatList
           data={filteredNotes}

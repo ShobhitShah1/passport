@@ -5,6 +5,7 @@ import Input from "@/components/ui/Input";
 import { ReachPressable } from "@/components/ui/ReachPressable";
 import Colors from "@/constants/Colors";
 import { useAppContext } from "@/hooks/useAppContext";
+import { useModal } from "../contexts/ModalContext";
 import { generatePassword } from "@/services/password/generator";
 import { usePasswordStore } from "@/stores/passwordStore";
 import {
@@ -317,6 +318,7 @@ export default function AddPasswordModal({
 }: AddPasswordModalProps) {
   const { state, dispatch } = useAppContext();
   const passwordStore = usePasswordStore();
+  const { showError, showSuccess } = useModal();
 
   const [formData, setFormData] = useState({
     identifierType: "email" as "email" | "username" | "phone" | "custom",
@@ -567,7 +569,7 @@ export default function AddPasswordModal({
     if (!appInfo) return;
 
     if (!formData.password.trim()) {
-      Alert.alert("SECURITY BREACH", "Neural key required for data encryption");
+      showError("SECURITY BREACH", "Neural key required for data encryption");
       return;
     }
 

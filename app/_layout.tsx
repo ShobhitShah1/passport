@@ -8,6 +8,7 @@ import "react-native-reanimated";
 
 import Colors from "@/constants/Colors";
 import { AppProvider } from "@/hooks/useAppContext";
+import { ModalProvider } from "../contexts/ModalContext";
 import { initializeWidgets } from "@/widgets/WidgetProvider";
 
 // Custom space theme
@@ -70,7 +71,8 @@ export default function RootLayout() {
 function RootLayoutNav() {
   return (
     <AppProvider>
-      <ThemeProvider value={SpaceTheme}>
+      <ModalProvider>
+        <ThemeProvider value={SpaceTheme}>
         <Stack
           screenOptions={{
             headerShown: false,
@@ -116,7 +118,8 @@ function RootLayoutNav() {
             }}
           />
         </Stack>
-      </ThemeProvider>
+        </ThemeProvider>
+      </ModalProvider>
     </AppProvider>
   );
 }

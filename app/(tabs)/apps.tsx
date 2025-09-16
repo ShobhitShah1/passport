@@ -1,5 +1,6 @@
 import AppIcon from "@/components/ui/AppIcon";
 import { ReachPressable } from "@/components/ui/ReachPressable";
+import { SpaceNoteCard } from "@/components/notes/SpaceNoteCard";
 import Colors from "@/constants/Colors";
 import { useAppContext } from "@/hooks/useAppContext";
 import { getInstalledApps } from "@/services/apps/appDetection";
@@ -17,6 +18,8 @@ import {
   TextInput,
   View,
 } from "react-native";
+import * as Clipboard from "expo-clipboard";
+import * as Haptics from "expo-haptics";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -257,151 +260,6 @@ const AppCard = React.memo(
   }
 );
 
-const SecureNoteCard = ({
-  note,
-  index,
-  onPress,
-}: {
-  note: SecureNote;
-  index: number;
-  onPress: (note: SecureNote) => void;
-}) => {
-  const cardScale = useSharedValue(1);
-  const cardOpacity = useSharedValue(0);
-
-  React.useEffect(() => {
-    cardOpacity.value = withTiming(1, {
-      duration: 400 + index * 50,
-    });
-  }, [index]);
-
-  const previewText =
-    note.content.length > 80
-      ? note.content.substring(0, 80) + "..."
-      : note.content;
-
-  const handlePressIn = () => {
-    "worklet";
-    cardScale.value = withTiming(0.98, { duration: 150 });
-  };
-
-  const handlePressOut = () => {
-    "worklet";
-    cardScale.value = withTiming(1, { duration: 150 });
-  };
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: cardScale.value }],
-    opacity: cardOpacity.value,
-  }));
-
-  const getCategoryColor = (category: string) => {
-    switch (category?.toLowerCase()) {
-      case "personal":
-        return Colors.dark.neonGreen;
-      case "work":
-        return Colors.dark.primary;
-      case "finance":
-        return Colors.dark.warning;
-      default:
-        return Colors.dark.textMuted;
-    }
-  };
-
-  const categoryColor = getCategoryColor(note.category);
-
-  return (
-    <Animated.View style={[styles.noteCardContainer, animatedStyle]}>
-      <ReachPressable
-        onPress={() => onPress(note)}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-        style={styles.noteCardPressable}
-        reachScale={1}
-        pressScale={1}
-      >
-        <LinearGradient
-          colors={[
-            "rgba(255, 255, 255, 0.06)",
-            "rgba(255, 255, 255, 0.02)",
-            "rgba(255, 255, 255, 0.01)",
-          ]}
-          style={styles.noteCard}
-        >
-          <View style={styles.noteHeader}>
-            <View
-              style={[
-                styles.noteIconContainer,
-                { backgroundColor: categoryColor + "20" },
-              ]}
-            >
-              <Ionicons name="document-lock" size={18} color={categoryColor} />
-            </View>
-            <View style={styles.noteInfo}>
-              <View style={styles.noteTitleRow}>
-                <Text style={styles.noteTitle} numberOfLines={1}>
-                  {note.title}
-                </Text>
-                {note.isFavorite && (
-                  <Ionicons
-                    name="heart"
-                    size={14}
-                    color={Colors.dark.warning}
-                  />
-                )}
-              </View>
-              <View style={styles.noteMetaRow}>
-                <View
-                  style={[
-                    styles.categoryPill,
-                    { backgroundColor: categoryColor + "15" },
-                  ]}
-                >
-                  <Text
-                    style={[styles.categoryPillText, { color: categoryColor }]}
-                  >
-                    {note.category}
-                  </Text>
-                </View>
-                <Text style={styles.noteTags}>
-                  {note.tags.length} {note.tags.length === 1 ? "tag" : "tags"}
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          <Text style={styles.notePreview} numberOfLines={3}>
-            {previewText}
-          </Text>
-
-          <View style={styles.noteFooter}>
-            <View style={styles.noteFooterLeft}>
-              <Text style={styles.noteDateText}>
-                {new Date(note.updatedAt).toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                  year: "2-digit",
-                })}
-              </Text>
-            </View>
-            <View style={styles.noteFooterRight}>
-              <Ionicons
-                name="lock-closed"
-                size={12}
-                color={Colors.dark.textMuted}
-              />
-              <Ionicons
-                name="chevron-forward"
-                size={14}
-                color={Colors.dark.textMuted}
-              />
-            </View>
-          </View>
-        </LinearGradient>
-      </ReachPressable>
-    </Animated.View>
-  );
-};
 
 const LoadingSpinner = React.memo(() => {
   const rotation = useSharedValue(0);
@@ -483,6 +341,7 @@ export default function AppsScreen() {
   const [passwordModalVisible, setPasswordModalVisible] = useState(false);
   const [noteModalVisible, setNoteModalVisible] = useState(false);
   const [selectedApp, setSelectedApp] = useState<InstalledApp | null>(null);
+  const [editingNote, setEditingNote] = useState<SecureNote | null>(null);
   const [viewMode, setViewMode] = useState<"apps" | "notes">("apps");
   const [installedApps, setInstalledApps] = useState<InstalledApp[]>([]);
   const [loading, setLoading] = useState(true);
@@ -564,11 +423,40 @@ export default function AppsScreen() {
 
   const handleCloseNoteModal = () => {
     setNoteModalVisible(false);
+    setEditingNote(null);
   };
 
   const handleNotePress = (note: SecureNote) => {
-    // TODO: Navigate to note details or edit
-    Alert.alert("Note Selected", `Opening: ${note.title}`);
+    // Show note details in a full view
+    Alert.alert(note.title, note.content, [
+      {
+        text: "Copy Note",
+        onPress: () => copyToClipboard(note.content, "Note content"),
+      },
+      {
+        text: "Edit",
+        onPress: () => handleEditNote(note),
+      },
+      {
+        text: "Close",
+        style: "cancel",
+      },
+    ]);
+  };
+
+  const handleEditNote = (note: SecureNote) => {
+    setEditingNote(note);
+    setNoteModalVisible(true);
+  };
+
+  const copyToClipboard = async (text: string, label: string) => {
+    try {
+      await Clipboard.setStringAsync(text);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert("✅ Copied", `${label} copied to clipboard`);
+    } catch (error) {
+      Alert.alert("❌ Error", "Failed to copy to clipboard");
+    }
   };
 
   return (
@@ -854,12 +742,16 @@ export default function AppsScreen() {
             styles.notesList,
             { paddingBottom: insets.bottom + 110 },
           ]}
+          showsVerticalScrollIndicator={false}
+          ItemSeparatorComponent={() => <View style={styles.noteSeparator} />}
           renderItem={({ item, index }) => (
-            <SecureNoteCard
-              note={item}
-              index={index}
-              onPress={handleNotePress}
-            />
+            <View style={styles.noteItemContainer}>
+              <SpaceNoteCard
+                note={item}
+                index={index}
+                onEdit={handleEditNote}
+              />
+            </View>
           )}
           ListEmptyComponent={() => (
             <View style={styles.emptyContainer}>
@@ -885,7 +777,11 @@ export default function AppsScreen() {
         onClose={handleClosePasswordModal}
       />
 
-      <AddNoteModal visible={noteModalVisible} onClose={handleCloseNoteModal} />
+      <AddNoteModal
+        visible={noteModalVisible}
+        onClose={handleCloseNoteModal}
+        existingNote={editingNote}
+      />
     </View>
   );
 }
@@ -1293,103 +1189,13 @@ const styles = StyleSheet.create({
   },
   notesList: {
     paddingHorizontal: 20,
-    gap: 16,
+    paddingTop: 16,
   },
-  noteCardContainer: {
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    elevation: 3,
+  noteItemContainer: {
+    paddingHorizontal: 2,
   },
-  noteCardPressable: {
-    borderRadius: 18,
-    overflow: "hidden",
-  },
-  noteCard: {
-    borderRadius: 18,
-    padding: 20,
-    borderWidth: 1.5,
-    borderColor: "rgba(255, 255, 255, 0.08)",
-    minHeight: 140,
-    justifyContent: "space-between",
-  },
-  noteHeader: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    marginBottom: 16,
-    gap: 12,
-  },
-  noteIconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
-  },
-  noteInfo: {
-    flex: 1,
-  },
-  noteTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 8,
-  },
-  noteTitle: {
-    fontSize: 17,
-    fontWeight: "700",
-    color: Colors.dark.text,
-    letterSpacing: 0.2,
-    flex: 1,
-  },
-  noteMetaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  categoryPill: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
-  },
-  categoryPillText: {
-    fontSize: 11,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  noteTags: {
-    fontSize: 12,
-    color: Colors.dark.textMuted,
-    fontWeight: "500",
-  },
-  notePreview: {
-    fontSize: 14,
-    color: Colors.dark.textSecondary,
-    lineHeight: 22,
-    flex: 1,
-    marginVertical: 12,
-  },
-  noteFooter: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(255, 255, 255, 0.05)",
-  },
-  noteFooterLeft: {
-    flex: 1,
-  },
-  noteFooterRight: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
+  noteSeparator: {
+    height: 20,
   },
   noteDateText: {
     fontSize: 12,

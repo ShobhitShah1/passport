@@ -1,3 +1,5 @@
+import ChangePinModal from "@/components/modals/ChangePinModal";
+import ImportBackupModal from "@/components/modals/ImportBackupModal";
 import { ReachPressable } from "@/components/ui/ReachPressable";
 import Colors from "@/constants/Colors";
 import { useAppContext } from "@/hooks/useAppContext";
@@ -17,86 +19,16 @@ import * as FileSystem from "expo-file-system";
 import { LinearGradient } from "expo-linear-gradient";
 import * as LocalAuthentication from "expo-local-authentication";
 import { router } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Alert,
-  Modal,
   ScrollView,
   StyleSheet,
   Switch,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Svg, { Polygon } from "react-native-svg";
-
-const TwinklingStar = ({ style, size }: { style: object; size: number }) => {
-  return (
-    <View
-      style={[
-        {
-          position: "absolute",
-          width: size,
-          height: size,
-          borderRadius: size / 2,
-          backgroundColor: "white",
-          opacity: 0.4,
-        },
-        style,
-      ]}
-    />
-  );
-};
-
-const StarField = () => {
-  const stars = useMemo(
-    () =>
-      Array.from({ length: 15 }, (_, i) => ({
-        key: `s1-${i}`,
-        left: `${Math.random() * 100}%`,
-        top: `${Math.random() * 100}%`,
-        size: Math.random() * 1.5 + 0.5,
-      })),
-    []
-  );
-  return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      {stars.map((star) => (
-        <TwinklingStar
-          key={star.key}
-          style={{ left: star.left, top: star.top }}
-          size={star.size}
-        />
-      ))}
-    </View>
-  );
-};
-
-const FloatingHexagon = ({ style }: { style: object }) => {
-  const hexPoints = (size: number) =>
-    Array.from({ length: 6 })
-      .map((_, i) => {
-        const angle_deg = 60 * i - 30;
-        const angle_rad = (Math.PI / 180) * angle_deg;
-        return `${size * Math.cos(angle_rad)},${size * Math.sin(angle_rad)}`;
-      })
-      .join(" ");
-
-  return (
-    <View style={[{ position: "absolute" }, style]}>
-      <Svg width={60} height={60} viewBox="-30 -30 60 60">
-        <Polygon
-          points={hexPoints(25)}
-          stroke={Colors.dark.primary}
-          strokeWidth="1"
-          fill="none"
-          opacity={0.3}
-        />
-      </Svg>
-    </View>
-  );
-};
 
 export default function SettingsTabScreen() {
   const {
@@ -114,6 +46,7 @@ export default function SettingsTabScreen() {
     updateSettings: updateStoreSettings,
     copyToClipboard,
     calculateSecurityScore,
+    authenticate,
   } = usePasswordStore();
   const [isLoading, setIsLoading] = useState(false);
   const [biometricAvailable, setBiometricAvailable] = useState(false);
@@ -126,10 +59,21 @@ export default function SettingsTabScreen() {
   // Import modal state
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [importPassword, setImportPassword] = useState("");
+  const [showImportPassword, setShowImportPassword] = useState(false);
   const [importData, setImportData] = useState<{
     encryptedData: any;
     stats: any;
   } | null>(null);
+
+  // Change Master Password states
+  const [showChangeMasterModal, setShowChangeMasterModal] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [changePasswordStep, setChangePasswordStep] = useState(1); // 1, 2, or 3
 
   const insets = useSafeAreaInsets();
 
@@ -181,6 +125,15 @@ export default function SettingsTabScreen() {
       setIsLoading(true);
 
       // Ensure authentication before updating settings
+      if (!state.isAuthenticated || !state.masterPassword) {
+        Alert.alert(
+          "Authentication Required",
+          "Please log in again to update settings.",
+          [{ text: "OK", onPress: () => router.replace("/auth") }]
+        );
+        return;
+      }
+
       const isAuthenticated = await ensureAuthenticated(
         state.isAuthenticated,
         state.masterPassword
@@ -188,7 +141,8 @@ export default function SettingsTabScreen() {
       if (!isAuthenticated) {
         Alert.alert(
           "Authentication Required",
-          "Please log in again to update settings."
+          "Please log in again to update settings.",
+          [{ text: "OK", onPress: () => router.replace("/auth") }]
         );
         return;
       }
@@ -349,8 +303,8 @@ export default function SettingsTabScreen() {
       if (!state.isAuthenticated || !state.masterPassword) {
         Alert.alert(
           "Authentication Required",
-          "You need to be logged in to export your data. Please restart the app and log in again.",
-          [{ text: "OK", onPress: () => dispatch({ type: "LOCK_APP" }) }]
+          "You need to be logged in to export your data. Please log in again.",
+          [{ text: "OK", onPress: () => router.replace("/auth") }]
         );
         return;
       }
@@ -617,25 +571,53 @@ export default function SettingsTabScreen() {
     setIsLoading(false);
   };
 
-  const handlePasswordModalSubmit = () => {
-    console.log("User entered password, length:", importPassword?.length || 0);
+  const handlePasswordModalSubmit = async (pin: string) => {
+    console.log("User entered password, length:", pin?.length || 0);
 
-    if (importPassword && importPassword.trim() && importData) {
-      setShowPasswordModal(false);
+    if (pin && pin.trim() && importData) {
+      try {
+        // Pass the correct data format - importData.encryptedData is already the JSON string from exportEncryptedData
+        const dataToImport =
+          typeof importData.encryptedData === "string"
+            ? importData.encryptedData
+            : JSON.stringify(importData.encryptedData);
 
-      // Pass the correct data format - importData.encryptedData is already the JSON string from exportEncryptedData
-      const dataToImport =
-        typeof importData.encryptedData === "string"
-          ? importData.encryptedData
-          : JSON.stringify(importData.encryptedData);
+        console.log("Data to import type:", typeof dataToImport);
+        console.log("Data preview:", dataToImport.substring(0, 100) + "...");
 
-      console.log("Data to import type:", typeof dataToImport);
-      console.log("Data preview:", dataToImport.substring(0, 100) + "...");
+        await performImport(dataToImport, pin.trim(), importData.stats);
+        // Close modal immediately on success
+        setShowPasswordModal(false);
+        setImportPassword("");
+        setImportData(null);
+      } catch (error: any) {
+        console.error("Import submission error:", error);
 
-      performImport(dataToImport, importPassword.trim(), importData.stats);
-      setImportPassword("");
-      setImportData(null);
-    } else {
+        // Show appropriate error message
+        const errorMessage = error?.message?.toLowerCase() || "";
+        const isPasswordError =
+          errorMessage.includes("decrypt") ||
+          errorMessage.includes("cipher") ||
+          errorMessage.includes("key") ||
+          errorMessage.includes("invalid") ||
+          errorMessage.includes("password");
+
+        if (isPasswordError) {
+          Alert.alert(
+            "❌ Wrong Master PIN",
+            "The master PIN you entered is incorrect. Please try again with the correct PIN used when creating this backup.",
+            [{ text: "OK" }]
+          );
+        } else {
+          Alert.alert(
+            "Import Error",
+            `Failed to import data.\n\nError: ${error?.message || error}`,
+            [{ text: "OK" }]
+          );
+        }
+        // Don't close modal on error, let user try again
+      }
+    } else if (!pin || !pin.trim()) {
       Alert.alert("Error", "Please enter a valid master password.");
     }
   };
@@ -646,7 +628,6 @@ export default function SettingsTabScreen() {
     stats: any
   ) => {
     try {
-      setIsLoading(true);
       console.log("Starting import process...");
       console.log("Import data type:", typeof encryptedData);
 
@@ -682,118 +663,57 @@ export default function SettingsTabScreen() {
 
         // Force refresh data after successful import
         try {
-          console.log("Reloading user data...");
+          console.log("Refreshing data stores...");
 
-          if (state.isAuthenticated && state.masterPassword) {
-            // Reload data using the current master password
-            await loadUserData(state.masterPassword);
-            console.log("Data reloaded with current master password");
-          } else {
-            // If not authenticated, try with the import password
-            console.log("Not authenticated, trying with import password");
-            await loadUserData(masterPassword);
+          const passwordToRefresh = state.masterPassword || masterPassword;
 
-            // Update authentication state
+          // Refresh both stores
+          await Promise.all([
+            loadUserData(passwordToRefresh),
+            authenticate(passwordToRefresh)
+          ]);
+
+          // Update authentication state if needed
+          if (!state.isAuthenticated) {
             dispatch({
               type: "AUTHENTICATE",
               payload: { isAuthenticated: true, masterPassword },
             });
-            console.log("Authentication updated with import password");
           }
 
-          console.log("Data reload completed successfully");
+          // Force update local stats to trigger UI refresh
+          setTimeout(() => {
+            updateDataStats();
+          }, 100);
+
+          console.log("Data refresh completed successfully");
         } catch (reloadError) {
-          console.error("Error reloading data:", reloadError);
+          console.error("Error refreshing data:", reloadError);
           // Continue even if reload fails - data was imported to storage
         }
 
-        const successMessage =
-          stats && stats.passwords && stats.notes
-            ? `Successfully imported data!\n\n📊 Import Summary:\n• ${
-                stats.passwords === "encrypted"
-                  ? "Passwords"
-                  : stats.passwords + " passwords"
-              }\n• ${
-                stats.notes === "encrypted"
-                  ? "Secure Notes"
-                  : stats.notes + " secure notes"
-              }\n\nData has been merged with your existing data.`
-            : "Data imported successfully and merged with your existing data!";
+        // Show success message after data refresh
+        setTimeout(() => {
+          const successMessage =
+            stats && stats.passwords && stats.notes
+              ? `Successfully imported data!\n\n📊 Import Summary:\n• ${
+                  stats.passwords === "encrypted"
+                    ? "Passwords"
+                    : stats.passwords + " passwords"
+                }\n• ${
+                  stats.notes === "encrypted"
+                    ? "Secure Notes"
+                    : stats.notes + " secure notes"
+                }\n\nData has been merged with your existing data.`
+              : "Data imported successfully and merged with your existing data!";
 
-        Alert.alert("✅ Import Successful", successMessage, [
-          {
-            text: "Refresh Data",
-            onPress: async () => {
-              try {
-                console.log("Manual refresh triggered");
-                const passwordToUse = state.masterPassword || masterPassword;
+          Alert.alert("✅ Import Successful", successMessage, [{ text: "OK" }]);
+        }, 200);
 
-                if (passwordToUse) {
-                  dispatch({ type: "SET_LOADING", payload: true });
-                  await loadUserData(passwordToUse);
-
-                  // Also sync with password store if available
-                  try {
-                    await syncAuthentication(true, passwordToUse);
-                    console.log("Password store synced");
-                  } catch (syncError) {
-                    console.warn("Password store sync failed:", syncError);
-                  }
-
-                  // Force UI refresh
-                  setTimeout(() => {
-                    dispatch({ type: "SET_LOADING", payload: false });
-                  }, 500);
-
-                  Alert.alert(
-                    "✅ Data Refreshed",
-                    "Your imported data is now visible in the app."
-                  );
-                } else {
-                  Alert.alert(
-                    "Error",
-                    "No master password available for refresh."
-                  );
-                }
-              } catch (error: any) {
-                console.error("Error refreshing data:", error);
-                dispatch({ type: "SET_LOADING", payload: false });
-                Alert.alert(
-                  "Refresh Failed",
-                  `Error: ${error?.message || "" || error}`
-                );
-              }
-            },
-          },
-          {
-            text: "Done",
-            style: "default",
-          },
-        ]);
+        return true; // Success
       } else {
-        // Import failed - show error with option to try again
-        Alert.alert(
-          "❌ Import Failed",
-          "Unable to import the backup data. This is most likely due to an incorrect master password.\n\nPlease check your master password and try again.",
-          [
-            {
-              text: "Try Again",
-              onPress: () => {
-                // Reset and show password modal again
-                setImportPassword("");
-                setShowPasswordModal(true);
-              },
-            },
-            {
-              text: "Cancel",
-              style: "cancel",
-              onPress: () => {
-                setImportData(null);
-                setImportPassword("");
-              },
-            },
-          ]
-        );
+        // Import failed - throw error to let modal handle retry
+        throw new Error("Import failed: Unable to decrypt backup data. Please check your master password.");
       }
     } catch (error: any) {
       console.error("Import error:", error);
@@ -807,39 +727,8 @@ export default function SettingsTabScreen() {
         errorMessage.includes("invalid") ||
         errorMessage.includes("corrupt");
 
-      if (isPasswordError) {
-        Alert.alert(
-          "❌ Wrong Master Password",
-          "The master password you entered is incorrect. The backup file cannot be decrypted with this password.\n\nPlease enter the correct master password that was used when creating this backup.",
-          [
-            {
-              text: "Try Again",
-              onPress: () => {
-                // Reset and show password modal again
-                setImportPassword("");
-                setShowPasswordModal(true);
-              },
-            },
-            {
-              text: "Cancel",
-              style: "cancel",
-              onPress: () => {
-                setImportData(null);
-                setImportPassword("");
-              },
-            },
-          ]
-        );
-      } else {
-        Alert.alert(
-          "Import Error",
-          `Failed to import data.\n\nError: ${
-            error?.message || error
-          }\n\nThis could be due to:\n• Corrupted or invalid backup file\n• Network or storage issues\n• Incompatible backup format`
-        );
-      }
-    } finally {
-      setIsLoading(false);
+      // Let the modal handle the error by throwing it
+      throw error;
     }
   };
 
@@ -851,8 +740,8 @@ export default function SettingsTabScreen() {
       if (!state.isAuthenticated || !state.masterPassword) {
         Alert.alert(
           "Authentication Required",
-          "You need to be logged in to backup your data. Please restart the app and log in again.",
-          [{ text: "OK", onPress: () => dispatch({ type: "LOCK_APP" }) }]
+          "You need to be logged in to backup your data. Please log in again.",
+          [{ text: "OK", onPress: () => router.replace("/auth") }]
         );
         return;
       }
@@ -932,62 +821,117 @@ export default function SettingsTabScreen() {
   };
 
   const handleChangeMasterPassword = () => {
-    Alert.prompt(
-      "Change Master Password",
-      "Enter your current master password:",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Continue",
-          onPress: (currentPassword) => {
-            if (currentPassword) {
-              promptNewPassword(currentPassword);
-            }
-          },
-        },
-      ],
-      "secure-text"
-    );
+    setChangePasswordStep(1);
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setShowCurrentPassword(false);
+    setShowNewPassword(false);
+    setShowConfirmPassword(false);
+    setShowChangeMasterModal(true);
   };
 
-  const promptNewPassword = (currentPassword: string) => {
-    Alert.prompt(
-      "New Master Password",
-      "Enter your new master password:",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Change",
-          onPress: (newPassword) => {
-            if (newPassword) {
-              confirmNewPassword(currentPassword, newPassword);
-            }
-          },
-        },
-      ],
-      "secure-text"
-    );
+  const handleChangeMasterModalCancel = () => {
+    setShowChangeMasterModal(false);
+    setChangePasswordStep(1);
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setIsLoading(false);
   };
 
-  const confirmNewPassword = (currentPassword: string, newPassword: string) => {
-    Alert.prompt(
-      "Confirm New Password",
-      "Re-enter your new master password:",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Confirm",
-          onPress: (confirmPassword) => {
-            if (confirmPassword === newPassword) {
-              changeMasterPasswordAsync(currentPassword, newPassword);
-            } else {
-              Alert.alert("Error", "Passwords do not match. Please try again.");
-            }
-          },
-        },
-      ],
-      "secure-text"
-    );
+  // PIN input handlers for modals
+  const handleImportPinDigit = (digit: string) => {
+    if (importPassword.length < 4) {
+      setImportPassword(importPassword + digit);
+    }
+  };
+
+  const handleImportPinBackspace = () => {
+    setImportPassword(importPassword.slice(0, -1));
+  };
+
+  const handleCurrentPinDigit = (digit: string) => {
+    if (currentPassword.length < 4) {
+      const newPin = currentPassword + digit;
+      setCurrentPassword(newPin);
+    }
+  };
+
+  const handleCurrentPinBackspace = () => {
+    setCurrentPassword(currentPassword.slice(0, -1));
+  };
+
+  const handleNewPinDigit = (digit: string) => {
+    if (newPassword.length < 4) {
+      const newPin = newPassword + digit;
+      setNewPassword(newPin);
+    }
+  };
+
+  const handleNewPinBackspace = () => {
+    setNewPassword(newPassword.slice(0, -1));
+  };
+
+  const handleConfirmPinDigit = (digit: string) => {
+    if (confirmPassword.length < 4) {
+      const newPin = confirmPassword + digit;
+      setConfirmPassword(newPin);
+    }
+  };
+
+  const handleConfirmPinBackspace = () => {
+    setConfirmPassword(confirmPassword.slice(0, -1));
+  };
+
+  const handleChangeMasterNext = async () => {
+    if (changePasswordStep === 1) {
+      // Verify current password
+      if (!currentPassword.trim()) {
+        Alert.alert("Error", "Please enter your current master PIN.");
+        return;
+      }
+
+      setIsLoading(true);
+      try {
+        const isValid = await verifyMasterPassword(currentPassword);
+        if (isValid) {
+          setChangePasswordStep(2);
+        } else {
+          Alert.alert("Error", "Current PIN is incorrect. Please try again.");
+        }
+      } catch (error) {
+        Alert.alert("Error", "Failed to verify current PIN. Please try again.");
+      } finally {
+        setIsLoading(false);
+      }
+    } else if (changePasswordStep === 2) {
+      // Validate new password
+      if (!newPassword.trim()) {
+        Alert.alert("Error", "Please enter a new master PIN.");
+        return;
+      }
+      if (newPassword.length !== 4) {
+        Alert.alert("Error", "PIN must be exactly 4 digits long.");
+        return;
+      }
+      if (!/^\d{4}$/.test(newPassword)) {
+        Alert.alert("Error", "PIN must contain only numbers.");
+        return;
+      }
+      if (newPassword === currentPassword) {
+        Alert.alert("Error", "New PIN must be different from current PIN.");
+        return;
+      }
+      setChangePasswordStep(3);
+    } else if (changePasswordStep === 3) {
+      // Confirm password and change
+      if (confirmPassword !== newPassword) {
+        Alert.alert("Error", "PINs do not match. Please try again.");
+        return;
+      }
+      await changeMasterPasswordAsync(currentPassword, newPassword);
+    }
   };
 
   const changeMasterPasswordAsync = async (
@@ -999,15 +943,37 @@ export default function SettingsTabScreen() {
       const success = await changeMasterPassword(currentPassword, newPassword);
 
       if (success) {
+        setShowChangeMasterModal(false);
+        setChangePasswordStep(1);
+        setCurrentPassword("");
+        setNewPassword("");
+        setConfirmPassword("");
+
+        // Update auth state with new password instead of locking app
+        dispatch({
+          type: "AUTHENTICATE",
+          payload: { isAuthenticated: true, masterPassword: newPassword },
+        });
+
+        // Refresh data with new password
+        try {
+          await Promise.all([
+            loadUserData(newPassword),
+            authenticate(newPassword)
+          ]);
+        } catch (error) {
+          console.error("Error refreshing data with new password:", error);
+        }
+
         Alert.alert(
-          "Success",
-          "Master password has been changed successfully. Please log in again with your new password.",
-          [{ text: "OK", onPress: () => dispatch({ type: "LOCK_APP" }) }]
+          "✅ Success",
+          "Master PIN has been changed successfully. You remain logged in with your new PIN.",
+          [{ text: "OK" }]
         );
       } else {
         Alert.alert(
           "Error",
-          "Failed to change master password. Please check your current password and try again."
+          "Failed to change master PIN. Please check your current PIN and try again."
         );
       }
     } catch (error: any) {
@@ -1185,12 +1151,6 @@ export default function SettingsTabScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <StarField />
-
-      <FloatingHexagon style={{ top: "10%", right: "10%" }} />
-      <FloatingHexagon style={{ top: "60%", left: "5%" }} />
-      <FloatingHexagon style={{ top: "80%", right: "20%" }} />
-
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
@@ -1261,17 +1221,6 @@ export default function SettingsTabScreen() {
             <Text style={styles.sectionTitle}>Interface Control</Text>
           </View>
           <View style={styles.settingsGroup}>
-            {/* <SettingRow
-              title="Dark Mode"
-              subtitle="Space-themed dark interface"
-              icon="moon"
-              value={settings?.darkModeEnabled ?? true}
-              onToggle={(value) => {
-                if (value !== undefined)
-                  updateSetting("darkModeEnabled", value);
-              }}
-              disabled={isLoading}
-            /> */}
             <SettingRow
               title="Default Password Length"
               subtitle={`${settings.defaultPasswordLength} characters`}
@@ -1323,128 +1272,7 @@ export default function SettingsTabScreen() {
               </View>
             </LinearGradient>
           </View>
-
-          {/* <View style={styles.settingsGroup}>
-            <SettingRow
-              title="Security Notifications"
-              subtitle="Weak password and breach alerts"
-              icon="shield-checkmark"
-              value={settings?.notifications?.weakPasswordAlerts ?? true}
-              onToggle={(value) => {
-                if (value !== undefined) {
-                  updateSetting("notifications", {
-                    ...settings.notifications,
-                    weakPasswordAlerts: value,
-                    dataBreachAlerts: value,
-                  });
-                }
-              }}
-              disabled={isLoading}
-            />
-            <SettingRow
-              title="Security Tips"
-              subtitle="Helpful security reminders"
-              icon="bulb"
-              value={settings?.notifications?.securityTips ?? true}
-              onToggle={(value) => {
-                if (value !== undefined) {
-                  updateSetting("notifications", {
-                    ...settings.notifications,
-                    securityTips: value,
-                  });
-                }
-              }}
-              disabled={isLoading}
-            />
-          </View> */}
         </View>
-
-        {/* <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Ionicons
-              name="phone-portrait"
-              size={24}
-              color={Colors.dark.secondary}
-            />
-            <Text style={styles.sectionTitle}>Widget Configuration</Text>
-          </View>
-          <View style={styles.settingsGroup}>
-            <SettingRow
-              title="Home Screen Widgets"
-              subtitle="Configure notes widgets for home screen"
-              icon="grid"
-              value={false}
-              onToggle={() =>
-                Alert.alert(
-                  "Widget Setup",
-                  'To add widgets:\n1. Long press on home screen\n2. Select "Widgets"\n3. Find "Passport Notes" widgets\n4. Drag to home screen\n\nWidget themes and settings can be customized below.'
-                )
-              }
-              type="button"
-              disabled={isLoading}
-            />
-            <SettingRow
-              title="Widget Theme"
-              subtitle="Choose the visual style for your widgets"
-              icon="color-palette"
-              value={false}
-              onToggle={() =>
-                Alert.alert("Widget Themes", "Choose your preferred theme:", [
-                  {
-                    text: "Holographic",
-                    onPress: () => handleWidgetThemeChange("holographic"),
-                  },
-                  {
-                    text: "Cyber",
-                    onPress: () => handleWidgetThemeChange("cyber"),
-                  },
-                  {
-                    text: "Neon",
-                    onPress: () => handleWidgetThemeChange("neon"),
-                  },
-                  {
-                    text: "Minimal",
-                    onPress: () => handleWidgetThemeChange("minimal"),
-                  },
-                  { text: "Cancel", style: "cancel" },
-                ])
-              }
-              type="button"
-              disabled={isLoading}
-            />
-            <SettingRow
-              title="Max Notes in Widget"
-              subtitle="Number of notes to display (1-10)"
-              icon="list"
-              value={false}
-              onToggle={() =>
-                Alert.prompt(
-                  "Widget Notes Count",
-                  "Enter number of notes to show in widget (1-10):",
-                  [
-                    { text: "Cancel", style: "cancel" },
-                    {
-                      text: "Update",
-                      onPress: (value: any) => {
-                        const count = parseInt(value || "5");
-                        if (count >= 1 && count <= 10) {
-                          handleMaxNotesChange(count);
-                        } else {
-                          Alert.alert(
-                            "Invalid Number",
-                            "Please enter a number between 1 and 10."
-                          );
-                        }
-                      },
-                    },
-                  ] as any
-                )
-              }
-              type="button"
-              disabled={isLoading}
-            />
-          </View>
-        </View> */}
 
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -1490,14 +1318,6 @@ export default function SettingsTabScreen() {
               onPress={handleDeleteAllData}
               disabled={isLoading}
             />
-            {/* <ActionButton
-              title="Review App"
-              subtitle="Rate on store"
-              icon="star"
-              color={Colors.dark.warning}
-              onPress={() => Alert.alert("Coming Soon!")}
-              disabled={isLoading}
-            /> */}
           </View>
         </View>
 
@@ -1524,107 +1344,22 @@ export default function SettingsTabScreen() {
         </View>
       </ScrollView>
 
-      {/* Import Password Modal */}
-      <Modal
+      <ImportBackupModal
         visible={showPasswordModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={handlePasswordModalCancel}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
-              {/* Header */}
-              <View style={styles.modalHeader}>
-                <View style={styles.iconWrapper}>
-                  <Ionicons
-                    name="cloud-download"
-                    size={28}
-                    color={Colors.dark.primary}
-                  />
-                </View>
-                <Text style={styles.modalTitle}>Import Backup</Text>
-                <Text style={styles.modalSubtitle}>
-                  Enter your master password to decrypt and import the backup
-                  data
-                </Text>
-              </View>
+        onClose={handlePasswordModalCancel}
+        onImport={handlePasswordModalSubmit}
+        importData={importData}
+        isLoading={false}
+      />
 
-              {/* Stats Card */}
-              {importData?.stats && (
-                <View style={styles.statsCard}>
-                  <Text style={styles.statsTitle}>Backup Contents</Text>
-                  <View style={styles.statsGrid}>
-                    <View style={styles.statBox}>
-                      <Text style={styles.statValue}>
-                        {importData.stats.passwords}
-                      </Text>
-                      <Text style={styles.statLabel}>Passwords</Text>
-                    </View>
-                    <View style={styles.statBox}>
-                      <Text style={styles.statValue}>
-                        {importData.stats.notes}
-                      </Text>
-                      <Text style={styles.statLabel}>Notes</Text>
-                    </View>
-                  </View>
-                </View>
-              )}
-
-              {/* Password Input */}
-              <View style={styles.inputSection}>
-                <Text style={styles.inputLabel}>Master Password</Text>
-                <View style={styles.inputWrapper}>
-                  <Ionicons
-                    name="key"
-                    size={20}
-                    color={Colors.dark.textMuted}
-                    style={styles.inputIconLeft}
-                  />
-                  <TextInput
-                    style={styles.passwordInput}
-                    value={importPassword}
-                    onChangeText={setImportPassword}
-                    placeholder="Enter password..."
-                    placeholderTextColor={Colors.dark.textMuted}
-                    secureTextEntry={true}
-                    autoFocus={true}
-                    returnKeyType="done"
-                    onSubmitEditing={handlePasswordModalSubmit}
-                  />
-                </View>
-              </View>
-
-              {/* Action Buttons */}
-              <View style={styles.modalActionButtons}>
-                <ReachPressable
-                  style={[styles.modalActionButton, styles.modalCancelButton]}
-                  onPress={handlePasswordModalCancel}
-                  reachScale={1.02}
-                  pressScale={0.98}
-                >
-                  <Text style={styles.cancelText}>Cancel</Text>
-                </ReachPressable>
-
-                <ReachPressable
-                  style={[styles.modalActionButton, styles.modalImportButton]}
-                  onPress={handlePasswordModalSubmit}
-                  reachScale={1.02}
-                  pressScale={0.98}
-                >
-                  <LinearGradient
-                    colors={[Colors.dark.primary, Colors.dark.neonGreen]}
-                    style={styles.importButtonInner}
-                  >
-                    <Ionicons name="download" size={16} color="#000" />
-                    <Text style={styles.importText}>Import</Text>
-                  </LinearGradient>
-                </ReachPressable>
-              </View>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      <ChangePinModal
+        visible={showChangeMasterModal}
+        onClose={handleChangeMasterModalCancel}
+        onChangePinComplete={async (currentPin, newPin) =>
+          await changeMasterPasswordAsync(currentPin, newPin)
+        }
+        isLoading={isLoading}
+      />
     </View>
   );
 }
@@ -1974,5 +1709,95 @@ const styles = StyleSheet.create({
     color: "#000",
     fontSize: 16,
     fontWeight: "700",
+  },
+
+  // PIN Input Styles
+  pinContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 24,
+    gap: 12,
+  },
+  pinCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+  },
+  pinEmpty: {
+    borderColor: "rgba(255, 255, 255, 0.3)",
+    backgroundColor: "transparent",
+  },
+  pinFilled: {
+    borderColor: Colors.dark.primary,
+    backgroundColor: Colors.dark.primary,
+    shadowColor: Colors.dark.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 6,
+  },
+  pinFilledCorrect: {
+    borderColor: Colors.dark.neonGreen,
+    backgroundColor: Colors.dark.neonGreen,
+    shadowColor: Colors.dark.neonGreen,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 6,
+  },
+  pinFilledError: {
+    borderColor: Colors.dark.error,
+    backgroundColor: Colors.dark.error,
+    shadowColor: Colors.dark.error,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 6,
+  },
+
+  // Progress Steps
+  progressSteps: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 32,
+  },
+  progressStepWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  progressStep: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  progressStepActive: {
+    backgroundColor: Colors.dark.primary,
+    shadowColor: Colors.dark.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+  },
+  progressStepInactive: {
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+  },
+  progressStepText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+  },
+  progressLine: {
+    width: 40,
+    height: 2,
+    marginHorizontal: 8,
+  },
+  progressLineActive: {
+    backgroundColor: Colors.dark.primary,
+  },
+  progressLineInactive: {
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
   },
 });

@@ -1,6 +1,7 @@
 import HolographicBackground from "@/components/HolographicBackground";
 import AppIcon from "@/components/ui/AppIcon";
 import { ReachPressable } from "@/components/ui/ReachPressable";
+import { SecureNotesSection } from "@/components/notes/SecureNotesSection";
 import Colors from "@/constants/Colors";
 import { useAppContext } from "@/hooks/useAppContext";
 import { useNavigationOptimization } from "@/hooks/useNavigationOptimization";
@@ -12,20 +13,17 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
 import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
+import * as Clipboard from "expo-clipboard";
 import Animated, {
-  cancelAnimation,
-  Easing,
-  runOnJS,
   useAnimatedStyle,
   useSharedValue,
-  withRepeat,
   withSequence,
   withSpring,
   withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import AddPasswordModal from "../../components/add-password-modal";
 import AddNoteModal from "../../components/add-note-modal";
+import AddPasswordModal from "../../components/add-password-modal";
 
 const SpaceHeader = React.memo(({ userName }: { userName?: string }) => {
   const currentHour = new Date().getHours();
@@ -166,293 +164,7 @@ const SecurityStatus = ({
   );
 };
 
-const SecureNotesSection = ({ notes }: { notes: SecureNote[] }) => {
-  return (
-    <View style={styles.notesSection}>
-      <View style={styles.notesSectionHeader}>
-        <Text style={styles.notesSectionTitle}>Secure Notes</Text>
-        <ReachPressable
-          style={styles.addNoteButton}
-          onPress={() => {}}
-          reachScale={1.05}
-          pressScale={0.95}
-        >
-          <Ionicons name="add" size={20} color={Colors.dark.neonGreen} />
-        </ReachPressable>
-      </View>
 
-      <View style={styles.notesGrid}>
-        {notes.map((note, index) => (
-          <SpaceNoteCard key={note.id} note={note} index={index} />
-        ))}
-      </View>
-
-      {notes.length === 0 && (
-        <View style={styles.emptyNotes}>
-          <Ionicons
-            name="document-text-outline"
-            size={48}
-            color={Colors.dark.textMuted}
-          />
-          <Text style={styles.emptyNotesText}>No secure notes yet</Text>
-          <Text style={styles.emptyNotesSubtext}>
-            Create your first encrypted note
-          </Text>
-        </View>
-      )}
-    </View>
-  );
-};
-
-const SpaceNoteCard = ({
-  note,
-  index,
-}: {
-  note: SecureNote;
-  index: number;
-}) => {
-  const cardScale = useSharedValue(1);
-  const cardOpacity = useSharedValue(0);
-  const glowOpacity = useSharedValue(0.1);
-  const borderOpacity = useSharedValue(0.1);
-  const shimmerX = useSharedValue(-150);
-
-  React.useEffect(() => {
-    cardOpacity.value = withTiming(1, {
-      duration: 300 + index * 50,
-      easing: Easing.out(Easing.quad),
-    });
-
-    // Remove all moving/blinking effects
-    glowOpacity.value = 0.15;
-    borderOpacity.value = 0.2;
-
-    return () => {
-      cancelAnimation(cardOpacity);
-    };
-  }, [index]);
-
-  const getCategoryData = (category: string) => {
-    switch (category?.toLowerCase()) {
-      case "personal":
-        return {
-          color: Colors.dark.neonGreen,
-          gradient: ["rgba(0, 255, 136, 0.15)", "rgba(0, 255, 136, 0.05)"],
-          icon: "person",
-        };
-      case "work":
-        return {
-          color: Colors.dark.primary,
-          gradient: ["rgba(0, 212, 255, 0.15)", "rgba(0, 212, 255, 0.05)"],
-          icon: "briefcase",
-        };
-      case "finance":
-        return {
-          color: Colors.dark.warning,
-          gradient: ["rgba(255, 171, 0, 0.15)", "rgba(255, 171, 0, 0.05)"],
-          icon: "card",
-        };
-      default:
-        return {
-          color: Colors.dark.textMuted,
-          gradient: ["rgba(255, 255, 255, 0.1)", "rgba(255, 255, 255, 0.05)"],
-          icon: "document-text",
-        };
-    }
-  };
-
-  const { color, gradient, icon } = getCategoryData(note.category);
-  const previewText =
-    note.content.length > 120
-      ? note.content.substring(0, 120) + "..."
-      : note.content;
-
-  const handlePressIn = () => {
-    "worklet";
-    cardScale.value = withTiming(0.97, { duration: 150 });
-  };
-
-  const handlePressOut = () => {
-    "worklet";
-    cardScale.value = withTiming(1, { duration: 150 });
-  };
-
-  const handlePress = () => {
-    Alert.alert(note.title, previewText);
-  };
-
-  const cardAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: cardScale.value }],
-    opacity: cardOpacity.value,
-  }));
-
-  const borderAnimatedStyle = useAnimatedStyle(() => ({
-    borderColor: `rgba(${
-      color === Colors.dark.neonGreen
-        ? "0, 255, 136"
-        : color === Colors.dark.primary
-        ? "0, 212, 255"
-        : color === Colors.dark.warning
-        ? "255, 171, 0"
-        : "156, 163, 175"
-    }, 0.2)`,
-  }));
-
-  return (
-    <Animated.View style={[styles.spaceNoteCard, cardAnimatedStyle]}>
-      <ReachPressable
-        style={styles.spaceNoteContent}
-        onPress={handlePress}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-        reachScale={1}
-        pressScale={1}
-      >
-        <Animated.View style={[styles.noteCardBorder, borderAnimatedStyle]}>
-          <LinearGradient
-            colors={[
-              `rgba(${
-                color === Colors.dark.neonGreen
-                  ? "0, 255, 136"
-                  : color === Colors.dark.primary
-                  ? "0, 212, 255"
-                  : color === Colors.dark.warning
-                  ? "255, 171, 0"
-                  : "156, 163, 175"
-              }, 0.08)`,
-              "rgba(255, 255, 255, 0.04)",
-              "rgba(255, 255, 255, 0.02)",
-            ]}
-            style={styles.spaceNoteGradient}
-          >
-            <View style={styles.spaceNoteHeader}>
-              <View style={styles.noteHeaderLeft}>
-                <View
-                  style={[
-                    styles.spaceNoteIcon,
-                    { backgroundColor: color + "20" },
-                  ]}
-                >
-                  <Ionicons
-                    name={icon as keyof typeof Ionicons.glyphMap}
-                    size={18}
-                    color={color}
-                  />
-                </View>
-                <View style={styles.noteHeaderText}>
-                  <View style={styles.noteTitleRow}>
-                    <Text style={styles.spaceNoteTitle} numberOfLines={1}>
-                      {note.title}
-                    </Text>
-                    {note.isFavorite && (
-                      <View style={styles.favoriteIndicator}>
-                        <Ionicons
-                          name="heart"
-                          size={12}
-                          color={Colors.dark.warning}
-                        />
-                      </View>
-                    )}
-                  </View>
-                  <View style={styles.noteMetaInfo}>
-                    <View
-                      style={[
-                        styles.spaceCategoryBadge,
-                        { backgroundColor: color + "15" },
-                      ]}
-                    >
-                      <Text style={[styles.spaceCategoryText, { color }]}>
-                        {note.category}
-                      </Text>
-                    </View>
-                    <Text style={styles.noteTagCount}>
-                      {note.tags.length}{" "}
-                      {note.tags.length === 1 ? "tag" : "tags"}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-              <View style={styles.noteHeaderActions}>
-                <ReachPressable
-                  style={[
-                    styles.noteActionChip,
-                    { backgroundColor: color + "15" },
-                  ]}
-                  onPress={() =>
-                    Alert.alert("Edit Note", `Edit: ${note.title}`)
-                  }
-                  reachScale={1.1}
-                  pressScale={0.9}
-                >
-                  <Ionicons name="create-outline" size={14} color={color} />
-                </ReachPressable>
-              </View>
-            </View>
-
-            <View style={styles.noteContentSection}>
-              <Text style={styles.spaceNotePreview} numberOfLines={3}>
-                {previewText}
-              </Text>
-            </View>
-
-            <View style={styles.spaceNoteFooter}>
-              <View style={styles.noteFooterLeft}>
-                <View style={styles.noteFooterInfo}>
-                  <Ionicons
-                    name="time-outline"
-                    size={12}
-                    color={Colors.dark.textMuted}
-                  />
-                  <Text style={styles.spaceNoteDate}>
-                    {new Date(note.updatedAt).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "2-digit",
-                    })}
-                  </Text>
-                </View>
-                <View style={styles.noteFooterDivider} />
-                <View style={styles.noteFooterInfo}>
-                  <Ionicons
-                    name="lock-closed"
-                    size={12}
-                    color={Colors.dark.neonGreen}
-                  />
-                  <Text
-                    style={[
-                      styles.noteSecurityText,
-                      { color: Colors.dark.neonGreen },
-                    ]}
-                  >
-                    Encrypted
-                  </Text>
-                </View>
-              </View>
-              <ReachPressable
-                style={styles.noteViewButton}
-                onPress={() => Alert.alert(note.title, previewText)}
-                reachScale={1.05}
-                pressScale={0.95}
-              >
-                <LinearGradient
-                  colors={[color, color + "80"]}
-                  style={styles.noteViewGradient}
-                >
-                  <Ionicons
-                    name="eye"
-                    size={12}
-                    color={Colors.dark.background}
-                  />
-                  <Text style={styles.noteViewText}>View</Text>
-                </LinearGradient>
-              </ReachPressable>
-            </View>
-          </LinearGradient>
-        </Animated.View>
-      </ReachPressable>
-    </Animated.View>
-  );
-};
 
 const PasswordPreviewSection = ({
   passwords,
@@ -1040,6 +752,7 @@ export default function VaultScreen() {
   const insets = useSafeAreaInsets();
   const { shouldRenderAnimations } = useNavigationOptimization();
   const [noteModalVisible, setNoteModalVisible] = useState(false);
+  const [editingNote, setEditingNote] = useState<SecureNote | null>(null);
 
   const allPasswords = passwordStore.isAuthenticated
     ? passwordStore.passwords
@@ -1074,6 +787,16 @@ export default function VaultScreen() {
       totalPasswords: total,
     };
   }, [passwordsData]);
+
+  const handleEditNote = (note: SecureNote) => {
+    setEditingNote(note);
+    setNoteModalVisible(true);
+  };
+
+  const handleCloseNoteModal = () => {
+    setNoteModalVisible(false);
+    setEditingNote(null);
+  };
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -1140,7 +863,11 @@ export default function VaultScreen() {
         )}
 
         {state.secureNotes.length > 0 && (
-          <SecureNotesSection notes={state.secureNotes} />
+          <SecureNotesSection
+            notes={state.secureNotes}
+            onAddNote={() => setNoteModalVisible(true)}
+            onEditNote={handleEditNote}
+          />
         )}
 
         {totalPasswords === 0 && state.secureNotes.length > 0 && (
@@ -1219,7 +946,8 @@ export default function VaultScreen() {
 
       <AddNoteModal
         visible={noteModalVisible}
-        onClose={() => setNoteModalVisible(false)}
+        onClose={handleCloseNoteModal}
+        existingNote={editingNote}
       />
     </View>
   );
@@ -1323,238 +1051,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: Colors.dark.primary,
-  },
-  // Secure Notes Section - Priority #1
-  notesSection: {
-    marginBottom: 0,
-  },
-  notesSectionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 20,
-  },
-  notesSectionTitle: {
-    fontSize: 24,
-    fontWeight: "800",
-    color: Colors.dark.text,
-    letterSpacing: 0.4,
-    textShadowColor: "rgba(0, 255, 136, 0.2)",
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 6,
-  },
-  addNoteButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(0, 255, 136, 0.1)",
-    borderWidth: 1,
-    borderColor: "rgba(0, 255, 136, 0.2)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  notesGrid: {
-    gap: 16,
-  },
-  emptyNotes: {
-    alignItems: "center",
-    padding: 60,
-    gap: 12,
-  },
-  emptyNotesText: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: Colors.dark.textSecondary,
-  },
-  emptyNotesSubtext: {
-    fontSize: 14,
-    color: Colors.dark.textMuted,
-    textAlign: "center",
-  },
-  // Beautiful Space Note Card
-  spaceNoteCard: {
-    marginBottom: 20,
-    borderRadius: 24,
-    overflow: "visible",
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  spaceNoteContent: {
-    borderRadius: 24,
-    overflow: "hidden",
-  },
-  noteCardBorder: {
-    borderRadius: 24,
-    borderWidth: 1.5,
-    overflow: "hidden",
-  },
-  spaceNoteGradient: {
-    padding: 20,
-    borderRadius: 24,
-    minHeight: 180,
-    position: "relative",
-    overflow: "hidden",
-  },
-  spaceNoteHeader: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    marginBottom: 16,
-  },
-  noteHeaderLeft: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    flex: 1,
-    gap: 12,
-  },
-  noteHeaderText: {
-    flex: 1,
-  },
-  noteTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 8,
-  },
-  noteMetaInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  noteTagCount: {
-    fontSize: 11,
-    color: Colors.dark.textMuted,
-    fontWeight: "500",
-  },
-  favoriteIndicator: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: "rgba(255, 171, 0, 0.15)",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "rgba(255, 171, 0, 0.2)",
-  },
-  noteHeaderActions: {
-    marginLeft: 12,
-  },
-  noteActionChip: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
-  },
-  spaceNoteIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1.5,
-    borderColor: "rgba(255, 255, 255, 0.15)",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  spaceCategoryBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
-  },
-  spaceCategoryText: {
-    fontSize: 10,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
-  },
-  spaceNoteTitle: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: Colors.dark.text,
-    lineHeight: 24,
-    letterSpacing: 0.2,
-    flex: 1,
-  },
-  noteContentSection: {
-    marginVertical: 12,
-  },
-  spaceNotePreview: {
-    fontSize: 14,
-    color: Colors.dark.textSecondary,
-    lineHeight: 21,
-    fontWeight: "400",
-  },
-  spaceNoteFooter: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(255, 255, 255, 0.06)",
-  },
-  noteFooterLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-    gap: 12,
-  },
-  noteFooterInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  noteFooterDivider: {
-    width: 1,
-    height: 12,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-  },
-  noteSecurityText: {
-    fontSize: 10,
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  spaceNoteDate: {
-    fontSize: 11,
-    color: Colors.dark.textMuted,
-    fontWeight: "500",
-  },
-  noteViewButton: {
-    borderRadius: 14,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  noteViewGradient: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    gap: 4,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.2)",
-    borderRadius: 14,
-  },
-  noteViewText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: Colors.dark.background,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
   },
   // Simple Security Status
   securityStatus: {

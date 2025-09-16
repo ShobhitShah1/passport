@@ -1,6 +1,8 @@
 import PinKeypad from "@/components/ui/PinKeypad";
 import { ReachPressable } from "@/components/ui/ReachPressable";
 import Colors from "@/constants/Colors";
+import { useAppContext } from "@/hooks/useAppContext";
+import { useModal } from "../contexts/ModalContext";
 import {
   loadSettings,
   saveSettings,
@@ -11,7 +13,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as LocalAuthentication from "expo-local-authentication";
 import { router } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -161,6 +163,8 @@ export default function SetupScreen() {
   >([]);
   const [isBiometricEnabled, setIsBiometricEnabled] = useState(false);
   const insets = useSafeAreaInsets();
+  const { authenticate } = useAppContext();
+  const { showError, showConfirm } = useModal();
 
   useEffect(() => {
     checkBiometricSupport();
@@ -302,12 +306,19 @@ export default function SetupScreen() {
           settings.biometricEnabled = isBiometricEnabled;
           await saveSettings(settings);
         }
-        router.replace("/(tabs)");
+        
+        // Authenticate the user through the context after successful setup
+        const authSuccess = await authenticate(masterPin);
+        if (authSuccess) {
+          router.replace("/(tabs)");
+        } else {
+          showError("Setup Failed", "Failed to authenticate after setup.");
+        }
       } else {
-        Alert.alert("Setup Failed", "Failed to set up your master PIN.");
+        showError("Setup Failed", "Failed to set up your master PIN.");
       }
     } catch (error) {
-      Alert.alert("Error", "An unexpected error occurred.");
+      showError("Error", "An unexpected error occurred.");
     } finally {
       setIsLoading(false);
     }
@@ -333,38 +344,23 @@ export default function SetupScreen() {
         setIsBiometricEnabled(true);
         handleSetup(pin);
       } else {
-        Alert.alert(
-          "Biometric Setup Failed", 
+        showConfirm(
+          "Biometric Setup Failed",
           "Biometric authentication failed. You can enable it later in settings.",
-          [
-            {
-              text: "Continue with PIN only",
-              onPress: () => {
-                setIsBiometricEnabled(false);
-                handleSetup(pin);
-              }
-            },
-            {
-              text: "Try Again",
-              onPress: enableBiometric
-            }
-          ]
+          () => enableBiometric(),
+          () => {
+            setIsBiometricEnabled(false);
+            handleSetup(pin);
+          }
         );
       }
     } catch (error) {
-      Alert.alert(
+      showError(
         "Error",
-        "Failed to verify biometric authentication. Continuing with PIN only.",
-        [
-          {
-            text: "OK",
-            onPress: () => {
-              setIsBiometricEnabled(false);
-              handleSetup(pin);
-            }
-          }
-        ]
+        "Failed to verify biometric authentication. Continuing with PIN only."
       );
+      setIsBiometricEnabled(false);
+      handleSetup(pin);
     } finally {
       setIsLoading(false);
     }

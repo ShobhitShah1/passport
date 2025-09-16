@@ -7,8 +7,12 @@ import React, {
   useReducer,
   useState,
 } from "react";
-import { Alert } from "react-native";
+import SessionExpiredModal from "../components/SessionExpiredModal";
 import {
+  clearSession,
+  createSessionToken,
+  extendSession,
+  hasValidSession,
   isAppSetup,
   loadPasswords,
   loadSecureNotes,
@@ -189,6 +193,7 @@ interface AppContextType {
   lockApp: () => void;
   loadUserData: (masterPassword: string) => Promise<void>;
   isSetupComplete: () => Promise<boolean>;
+  tryAutoAuthenticate: () => Promise<boolean>;
   // Data persistence functions
   saveData: () => Promise<void>;
   addPassword: (password: any) => Promise<void>;
@@ -210,6 +215,7 @@ interface AppProviderProps {
 export function AppProvider({ children }: AppProviderProps) {
   const [state, dispatch] = useReducer(appReducer, initialState);
   const [lockCountdown, setLockCountdown] = useState<number | null>(null);
+  const [showSessionExpiredModal, setShowSessionExpiredModal] = useState(false);
 
   useEffect(() => {
     if (!state.isAuthenticated || state.settings.autoLockTimeout === 0) {
@@ -226,24 +232,21 @@ export function AppProvider({ children }: AppProviderProps) {
 
       if (remainingTime <= 0) {
         clearInterval(intervalId);
-        Alert.alert(
-          "Session Expired",
-          "Your session has expired. Please log in again.",
-          [
-            {
-              text: "OK",
-              onPress: () => {
-                dispatch({ type: "LOCK_APP" });
-                router.replace("/auth");
-              },
-            },
-          ]
-        );
+        setShowSessionExpiredModal(true);
       }
     }, 1000);
 
     return () => clearInterval(intervalId);
   }, [state.isAuthenticated, state.settings.autoLockTimeout]);
+
+  // Auto-detection for auth state - only log, don't navigate
+  // Let the splash screen handle all initial navigation
+  useEffect(() => {
+    if (!state.isAuthenticated && !state.loading) {
+      console.log('🔒 Auth state lost - user needs to re-authenticate');
+      // Don't navigate here - let session expiry modal handle this
+    }
+  }, [state.isAuthenticated, state.loading]);
 
   const authenticate = async (masterPassword: string): Promise<boolean> => {
     try {
@@ -273,6 +276,13 @@ export function AppProvider({ children }: AppProviderProps) {
         console.warn("Failed to sync passwordStore authentication:", error);
       }
 
+      // Create session token for persistent authentication
+      try {
+        await createSessionToken(masterPassword);
+      } catch (error) {
+        console.warn("Failed to create session token:", error);
+      }
+
       return true;
     } catch (error) {
       console.error("Authentication error:", error);
@@ -285,6 +295,10 @@ export function AppProvider({ children }: AppProviderProps) {
 
   const lockApp = () => {
     dispatch({ type: "LOCK_APP" });
+    // Clear session token when manually locking
+    clearSession().catch(error => 
+      console.warn("Failed to clear session:", error)
+    );
   };
 
   const loadUserData = async (masterPassword: string) => {
@@ -309,6 +323,31 @@ export function AppProvider({ children }: AppProviderProps) {
 
   const isSetupComplete = async (): Promise<boolean> => {
     return await isAppSetup();
+  };
+
+  const tryAutoAuthenticate = async (): Promise<boolean> => {
+    try {
+      // Check if there's a valid session token
+      const hasSession = await hasValidSession();
+      if (!hasSession) {
+        return false;
+      }
+
+      // Session exists and is valid - try to restore auth state
+      // Load settings to check biometric preference
+      const settings = await loadSettings();
+      if (settings?.biometricEnabled) {
+        // With biometric enabled, let the auth screen handle the auto-trigger
+        // but indicate that a valid session exists
+        return true;
+      }
+
+      // Without biometric, user still needs to enter PIN
+      return false;
+    } catch (error) {
+      console.error("Auto-authentication error:", error);
+      return false;
+    }
   };
 
   // Data persistence functions
@@ -387,6 +426,12 @@ export function AppProvider({ children }: AppProviderProps) {
     await saveSettings(updatedSettings);
   };
 
+  const handleSessionExpiredClose = () => {
+    setShowSessionExpiredModal(false);
+    dispatch({ type: "LOCK_APP" });
+    router.replace("/auth");
+  };
+
   const contextValue: AppContextType = {
     state,
     dispatch,
@@ -394,6 +439,7 @@ export function AppProvider({ children }: AppProviderProps) {
     lockApp,
     loadUserData,
     isSetupComplete,
+    tryAutoAuthenticate,
     saveData,
     addPassword,
     updatePassword,
@@ -406,7 +452,13 @@ export function AppProvider({ children }: AppProviderProps) {
   };
 
   return (
-    <AppContext.Provider value={contextValue}>{children}</AppContext.Provider>
+    <AppContext.Provider value={contextValue}>
+      {children}
+      <SessionExpiredModal
+        visible={showSessionExpiredModal}
+        onClose={handleSessionExpiredClose}
+      />
+    </AppContext.Provider>
   );
 }
 

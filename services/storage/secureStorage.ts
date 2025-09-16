@@ -11,6 +11,8 @@ const STORAGE_KEYS = {
   SETTINGS: 'user_settings',
   ENCRYPTION_SALT: 'encryption_salt',
   ENCRYPTION_IV: 'encryption_iv',
+  SESSION_TOKEN: 'session_token',
+  SESSION_EXPIRY: 'session_expiry',
 } as const;
 
 /**
@@ -20,10 +22,36 @@ export async function initializeStorage(): Promise<boolean> {
   try {
     // Check if master password is already set
     const hashedPassword = await SecureStore.getItemAsync(STORAGE_KEYS.MASTER_PASSWORD_HASH);
-    return hashedPassword !== null;
+    const salt = await SecureStore.getItemAsync(STORAGE_KEYS.MASTER_PASSWORD_SALT);
+
+    if (!hashedPassword) {
+      return false;
+    }
+
+    // Validate stored data integrity
+    if (!salt || typeof hashedPassword !== 'string' || typeof salt !== 'string') {
+      console.error('Corrupted master password data detected, clearing storage');
+      await clearAllStorageData();
+      return false;
+    }
+
+    return true;
   } catch (error) {
     console.error('Error initializing storage:', error);
     return false;
+  }
+}
+
+/**
+ * Clear all storage data (for corruption recovery)
+ */
+async function clearAllStorageData(): Promise<void> {
+  try {
+    const keys = Object.values(STORAGE_KEYS);
+    await Promise.all(keys.map(key => SecureStore.deleteItemAsync(key).catch(() => {})));
+    console.log('All storage data cleared due to corruption');
+  } catch (error) {
+    console.error('Error clearing storage data:', error);
   }
 }
 
@@ -80,11 +108,24 @@ export async function verifyMasterPassword(masterPassword: string): Promise<bool
   try {
     const hashedPassword = await SecureStore.getItemAsync(STORAGE_KEYS.MASTER_PASSWORD_HASH);
     const salt = await SecureStore.getItemAsync(STORAGE_KEYS.MASTER_PASSWORD_SALT);
-    
+
     if (!hashedPassword || !salt) {
+      console.log('Master password hash or salt not found');
       return false;
     }
-    
+
+    // Validate the stored hash and salt format
+    if (typeof hashedPassword !== 'string' || typeof salt !== 'string') {
+      console.error('Invalid master password hash or salt format');
+      return false;
+    }
+
+    // Check for corrupted hash/salt data
+    if (hashedPassword.length < 32 || salt.length < 16) {
+      console.error('Corrupted master password hash or salt detected');
+      return false;
+    }
+
     return await verifyPassword(masterPassword, hashedPassword, salt);
   } catch (error) {
     console.error('Error verifying master password:', error);
@@ -179,17 +220,55 @@ export async function savePasswords(
 export async function loadPasswords(masterPassword: string): Promise<Password[]> {
   try {
     const encryptedPasswords = await SecureStore.getItemAsync(STORAGE_KEYS.PASSWORDS);
-    
+
     if (!encryptedPasswords) {
       return [];
     }
-    
+
+    // Validate the stored data before parsing
+    if (!encryptedPasswords.startsWith('{') && !encryptedPasswords.startsWith('[')) {
+      console.error('Invalid password data format, clearing corrupted data');
+      await SecureStore.deleteItemAsync(STORAGE_KEYS.PASSWORDS);
+      return [];
+    }
+
     const storedData: StoredData = JSON.parse(encryptedPasswords);
+
+    // Debug logging
+    console.log('Loaded password data structure:', {
+      hasEncrypted: !!storedData.encrypted,
+      hasIV: !!storedData.iv,
+      hasSalt: !!storedData.salt,
+      encryptedLength: storedData.encrypted?.length || 0
+    });
+
+    // Validate required properties
+    if (!storedData.encrypted || !storedData.iv || !storedData.salt) {
+      console.error('Invalid stored data structure, clearing corrupted data');
+      await SecureStore.deleteItemAsync(STORAGE_KEYS.PASSWORDS);
+      return [];
+    }
+
     const decryptedData = await decrypt(storedData, masterPassword);
-    
+
+    // Validate decrypted data before parsing
+    if (!decryptedData || (!decryptedData.startsWith('[') && !decryptedData.startsWith('{'))) {
+      console.error('Invalid decrypted password data format');
+      return [];
+    }
+
     return JSON.parse(decryptedData);
   } catch (error) {
     console.error('Error loading passwords:', error);
+    // Clear corrupted data on JSON parse error
+    if (error instanceof SyntaxError && error.message.includes('JSON Parse error')) {
+      console.log('Clearing corrupted password data');
+      try {
+        await SecureStore.deleteItemAsync(STORAGE_KEYS.PASSWORDS);
+      } catch (clearError) {
+        console.error('Error clearing corrupted password data:', clearError);
+      }
+    }
     return [];
   }
 }
@@ -219,17 +298,55 @@ export async function saveSecureNotes(
 export async function loadSecureNotes(masterPassword: string): Promise<SecureNote[]> {
   try {
     const encryptedNotes = await SecureStore.getItemAsync(STORAGE_KEYS.SECURE_NOTES);
-    
+
     if (!encryptedNotes) {
       return [];
     }
-    
+
+    // Validate the stored data before parsing
+    if (!encryptedNotes.startsWith('{') && !encryptedNotes.startsWith('[')) {
+      console.error('Invalid secure notes data format, clearing corrupted data');
+      await SecureStore.deleteItemAsync(STORAGE_KEYS.SECURE_NOTES);
+      return [];
+    }
+
     const storedData: StoredData = JSON.parse(encryptedNotes);
+
+    // Debug logging
+    console.log('Loaded notes data structure:', {
+      hasEncrypted: !!storedData.encrypted,
+      hasIV: !!storedData.iv,
+      hasSalt: !!storedData.salt,
+      encryptedLength: storedData.encrypted?.length || 0
+    });
+
+    // Validate required properties
+    if (!storedData.encrypted || !storedData.iv || !storedData.salt) {
+      console.error('Invalid stored notes data structure, clearing corrupted data');
+      await SecureStore.deleteItemAsync(STORAGE_KEYS.SECURE_NOTES);
+      return [];
+    }
+
     const decryptedData = await decrypt(storedData, masterPassword);
-    
+
+    // Validate decrypted data before parsing
+    if (!decryptedData || (!decryptedData.startsWith('[') && !decryptedData.startsWith('{'))) {
+      console.error('Invalid decrypted secure notes data format');
+      return [];
+    }
+
     return JSON.parse(decryptedData);
   } catch (error) {
     console.error('Error loading secure notes:', error);
+    // Clear corrupted data on JSON parse error
+    if (error instanceof SyntaxError && error.message.includes('JSON Parse error')) {
+      console.log('Clearing corrupted secure notes data');
+      try {
+        await SecureStore.deleteItemAsync(STORAGE_KEYS.SECURE_NOTES);
+      } catch (clearError) {
+        console.error('Error clearing corrupted secure notes data:', clearError);
+      }
+    }
     return [];
   }
 }
@@ -270,6 +387,7 @@ export async function loadSettings(): Promise<UserSettings | null> {
  */
 export async function clearAllData(): Promise<boolean> {
   try {
+    // Clear all stored data including session tokens
     await Promise.all([
       SecureStore.deleteItemAsync(STORAGE_KEYS.MASTER_PASSWORD_HASH),
       SecureStore.deleteItemAsync(STORAGE_KEYS.MASTER_PASSWORD_SALT),
@@ -278,8 +396,10 @@ export async function clearAllData(): Promise<boolean> {
       SecureStore.deleteItemAsync(STORAGE_KEYS.SETTINGS),
       SecureStore.deleteItemAsync(STORAGE_KEYS.ENCRYPTION_SALT),
       SecureStore.deleteItemAsync(STORAGE_KEYS.ENCRYPTION_IV),
+      SecureStore.deleteItemAsync(STORAGE_KEYS.SESSION_TOKEN),
+      SecureStore.deleteItemAsync(STORAGE_KEYS.SESSION_EXPIRY),
     ]);
-    
+
     return true;
   } catch (error) {
     console.error('Error clearing data:', error);
@@ -361,6 +481,105 @@ export async function importEncryptedData(
     return true;
   } catch (error) {
     console.error('Error importing data:', error);
+    return false;
+  }
+}
+
+/**
+ * Create a session token for auto-authentication
+ */
+export async function createSessionToken(masterPassword: string): Promise<boolean> {
+  try {
+    const settings = await loadSettings();
+    const autoLockTimeout = settings?.autoLockTimeout || 5; // minutes
+    
+    // Only create session if auto-lock timeout is greater than 0
+    if (autoLockTimeout <= 0) {
+      return false;
+    }
+    
+    // Simple approach: just store session validity flag
+    const expiryTime = Date.now() + (autoLockTimeout * 60 * 1000);
+    
+    await Promise.all([
+      SecureStore.setItemAsync(STORAGE_KEYS.SESSION_TOKEN, 'valid'),
+      SecureStore.setItemAsync(STORAGE_KEYS.SESSION_EXPIRY, expiryTime.toString()),
+    ]);
+    
+    return true;
+  } catch (error) {
+    console.error('Error creating session token:', error);
+    return false;
+  }
+}
+
+/**
+ * Check if there's a valid session token
+ */
+export async function hasValidSession(): Promise<boolean> {
+  try {
+    const [sessionToken, expiryTimeStr] = await Promise.all([
+      SecureStore.getItemAsync(STORAGE_KEYS.SESSION_TOKEN),
+      SecureStore.getItemAsync(STORAGE_KEYS.SESSION_EXPIRY),
+    ]);
+    
+    if (!sessionToken || !expiryTimeStr) {
+      return false;
+    }
+    
+    const expiryTime = parseInt(expiryTimeStr);
+    const currentTime = Date.now();
+    
+    if (currentTime > expiryTime) {
+      // Session expired, clean up
+      await clearSession();
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error checking session validity:', error);
+    return false;
+  }
+}
+
+/**
+ * Clear session token
+ */
+export async function clearSession(): Promise<void> {
+  try {
+    await Promise.all([
+      SecureStore.deleteItemAsync(STORAGE_KEYS.SESSION_TOKEN),
+      SecureStore.deleteItemAsync(STORAGE_KEYS.SESSION_EXPIRY),
+    ]);
+  } catch (error) {
+    console.error('Error clearing session:', error);
+  }
+}
+
+/**
+ * Extend current session
+ */
+export async function extendSession(): Promise<boolean> {
+  try {
+    const settings = await loadSettings();
+    const autoLockTimeout = settings?.autoLockTimeout || 5;
+    
+    if (autoLockTimeout <= 0) {
+      return false;
+    }
+    
+    const hasSession = await hasValidSession();
+    if (!hasSession) {
+      return false;
+    }
+    
+    const newExpiryTime = Date.now() + (autoLockTimeout * 60 * 1000);
+    await SecureStore.setItemAsync(STORAGE_KEYS.SESSION_EXPIRY, newExpiryTime.toString());
+    
+    return true;
+  } catch (error) {
+    console.error('Error extending session:', error);
     return false;
   }
 }

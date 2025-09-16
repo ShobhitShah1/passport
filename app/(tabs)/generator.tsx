@@ -6,13 +6,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useState } from "react";
 import {
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import { useModal } from "../../contexts/ModalContext";
 import Animated, {
   cancelAnimation,
   runOnJS,
@@ -43,6 +43,7 @@ export default function GeneratorScreen() {
   });
   const insets = useSafeAreaInsets();
   const { shouldRenderAnimations } = useNavigationOptimization();
+  const { showError, showSuccess } = useModal();
 
   // Optimized password generation with proper threading
   const generatePassword = React.useCallback(() => {
@@ -60,7 +61,7 @@ export default function GeneratorScreen() {
     if (options.symbols) charset += chars.symbols;
 
     if (!charset) {
-      Alert.alert("Error", "Please select at least one character type");
+      showError("Error", "Please select at least one character type");
       return;
     }
 
@@ -79,7 +80,7 @@ export default function GeneratorScreen() {
   const copyToClipboard = () => {
     if (password) {
       // Clipboard.setString(password);
-      Alert.alert("Success", "Password copied to clipboard!");
+      showSuccess("Success", "Password copied to clipboard!");
     }
   };
 

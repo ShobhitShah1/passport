@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
-import { Tabs } from "expo-router";
-import React from "react";
+import { Tabs, router } from "expo-router";
+import React, { useEffect } from "react";
 import { Dimensions, Pressable, StyleSheet, View } from "react-native";
 import Animated, {
   useSharedValue,
@@ -10,6 +10,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
 import Colors from "@/constants/Colors";
+import { useAppContext } from "@/hooks/useAppContext";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const TAB_BAR_HEIGHT = 70;
@@ -122,6 +123,14 @@ const getIconName = (
 };
 
 export default function TabLayout() {
+  const { state } = useAppContext();
+
+  // Simple guard - just don't render if not authenticated
+  // Let the splash screen handle navigation logic
+  if (!state.isAuthenticated) {
+    return null;
+  }
+
   return (
     <Tabs
       key="tabs"

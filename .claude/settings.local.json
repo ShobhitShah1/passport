@@ -64,7 +64,9 @@
       "Read(/D:\\passport\\app\\(tabs)/**)",
       "Bash(tail:*)",
       "Bash(del \"D:\\passport\\components\\edit-password-modal.tsx\")",
-      "Bash(npx expo start:*)"
+      "Bash(npx expo start:*)",
+      "Bash(wc:*)",
+      "Bash(sed:*)"
     ],
     "deny": [],
     "ask": []

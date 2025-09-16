@@ -26,10 +26,11 @@ const { height: screenHeight, width: screenWidth } = Dimensions.get("window");
 interface AddNoteModalProps {
   visible: boolean;
   onClose: () => void;
+  existingNote?: SecureNote | null;
 }
 
 // Simplified Header
-const HolographicHeader = ({ onClose }: { onClose: () => void }) => {
+const HolographicHeader = ({ onClose, isEditing }: { onClose: () => void; isEditing: boolean }) => {
   return (
     <View style={styles.holographicHeader}>
       <View style={styles.headerContainer}>
@@ -41,7 +42,9 @@ const HolographicHeader = ({ onClose }: { onClose: () => void }) => {
           />
           <View style={styles.headerInfo}>
             <Text style={styles.holoAppName}>Secure Note</Text>
-            <Text style={styles.holoSubtitle}>Create Encrypted Note</Text>
+            <Text style={styles.holoSubtitle}>
+              {isEditing ? "Edit Encrypted Note" : "Create Encrypted Note"}
+            </Text>
           </View>
         </View>
 
@@ -178,7 +181,7 @@ const NOTE_CATEGORIES = [
   "Other",
 ];
 
-export default function AddNoteModal({ visible, onClose }: AddNoteModalProps) {
+export default function AddNoteModal({ visible, onClose, existingNote }: AddNoteModalProps) {
   const { state, dispatch } = useAppContext();
 
   const [formData, setFormData] = useState({
@@ -188,6 +191,26 @@ export default function AddNoteModal({ visible, onClose }: AddNoteModalProps) {
     tags: "",
   });
   const [isSaving, setIsSaving] = useState(false);
+
+  // Pre-fill form data when editing an existing note
+  useEffect(() => {
+    if (existingNote) {
+      setFormData({
+        title: existingNote.title,
+        content: existingNote.content,
+        category: existingNote.category,
+        tags: existingNote.tags.join(", "),
+      });
+    } else {
+      // Reset form when creating new note
+      setFormData({
+        title: "",
+        content: "",
+        category: "Personal",
+        tags: "",
+      });
+    }
+  }, [existingNote, visible]);
 
   // Animation values
   const slideAnim = useRef(new Animated.Value(screenHeight)).current;
@@ -250,31 +273,61 @@ export default function AddNoteModal({ visible, onClose }: AddNoteModalProps) {
 
     setIsSaving(true);
     try {
-      const newNote: SecureNote = {
-        id: Date.now().toString(),
-        title: formData.title.trim(),
-        content: formData.content.trim(),
-        category: formData.category,
-        tags: formData.tags
-          .split(",")
-          .map((tag) => tag.trim())
-          .filter((tag) => tag.length > 0),
-        isFavorite: false,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+      if (existingNote) {
+        // Update existing note
+        const updatedNote: SecureNote = {
+          ...existingNote,
+          title: formData.title.trim(),
+          content: formData.content.trim(),
+          category: formData.category,
+          tags: formData.tags
+            .split(",")
+            .map((tag) => tag.trim())
+            .filter((tag) => tag.length > 0),
+          updatedAt: new Date(),
+        };
 
-      dispatch({ type: "ADD_SECURE_NOTE", payload: newNote });
+        dispatch({ type: "UPDATE_SECURE_NOTE", payload: updatedNote });
 
-      if (state.masterPassword) {
-        const updatedNotes = [...state.secureNotes, newNote];
-        await saveSecureNotes(updatedNotes, state.masterPassword);
+        if (state.masterPassword) {
+          const updatedNotes = state.secureNotes.map((note) =>
+            note.id === existingNote.id ? updatedNote : note
+          );
+          await saveSecureNotes(updatedNotes, state.masterPassword);
+        }
+
+        Alert.alert(
+          "NEURAL LINK SUCCESS",
+          `Quantum encrypted note updated securely ⚡`
+        );
+      } else {
+        // Create new note
+        const newNote: SecureNote = {
+          id: Date.now().toString(),
+          title: formData.title.trim(),
+          content: formData.content.trim(),
+          category: formData.category,
+          tags: formData.tags
+            .split(",")
+            .map((tag) => tag.trim())
+            .filter((tag) => tag.length > 0),
+          isFavorite: false,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+
+        dispatch({ type: "ADD_SECURE_NOTE", payload: newNote });
+
+        if (state.masterPassword) {
+          const updatedNotes = [...state.secureNotes, newNote];
+          await saveSecureNotes(updatedNotes, state.masterPassword);
+        }
+
+        Alert.alert(
+          "NEURAL LINK SUCCESS",
+          `Quantum encrypted note stored securely ⚡`
+        );
       }
-
-      Alert.alert(
-        "NEURAL LINK SUCCESS",
-        `Quantum encrypted note stored securely ⚡`
-      );
 
       setFormData({
         title: "",
@@ -309,7 +362,7 @@ export default function AddNoteModal({ visible, onClose }: AddNoteModalProps) {
             },
           ]}
         >
-          <HolographicHeader onClose={onClose} />
+          <HolographicHeader onClose={onClose} isEditing={!!existingNote} />
 
           <ScrollView
             style={styles.form}
@@ -335,6 +388,7 @@ export default function AddNoteModal({ visible, onClose }: AddNoteModalProps) {
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 style={styles.categoryScroll}
+                keyboardShouldPersistTaps="handled"
               >
                 <View style={styles.categoryOptions}>
                   {NOTE_CATEGORIES.map((category) => (
@@ -414,7 +468,11 @@ export default function AddNoteModal({ visible, onClose }: AddNoteModalProps) {
 
               <Button
                 title={
-                  isSaving ? "⚡ ENCRYPTING DATA..." : "⚡ SECURE DATA LINK"
+                  isSaving
+                    ? "⚡ ENCRYPTING DATA..."
+                    : existingNote
+                    ? "⚡ UPDATE DATA LINK"
+                    : "⚡ SECURE DATA LINK"
                 }
                 onPress={handleSave}
                 variant="primary"
@@ -442,7 +500,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 0,
   },
   holographicHeader: {
-    paddingVertical: 24,
+    paddingVertical: 10,
     borderBottomWidth: 2,
     borderBottomColor: Colors.dark.primary,
     backgroundColor: Colors.dark.surface,

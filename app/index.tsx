@@ -1,5 +1,7 @@
 import Colors from "@/constants/Colors";
 import { useAppContext } from "@/hooks/useAppContext";
+import { clearSession } from "@/services/storage/secureStorage";
+import { navigationService } from "@/services/NavigationService";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
@@ -161,7 +163,7 @@ const FloatingParticles = React.memo(() => {
 export default function IndexScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadingProgress, setLoadingProgress] = useState(0);
-  const { isSetupComplete, state } = useAppContext();
+  const { isSetupComplete, tryAutoAuthenticate, state } = useAppContext();
   const insets = useSafeAreaInsets();
 
   const rocketRotation = useSharedValue(0);
@@ -228,23 +230,43 @@ export default function IndexScreen() {
 
   const checkAppState = async () => {
     try {
+      console.log('🚀 Starting app state check...');
+
+      // Add minimum loading time for UX
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
       const setupComplete = await isSetupComplete();
+      console.log('📋 Setup complete:', setupComplete);
 
       if (!setupComplete) {
         // First time user - show onboarding
-        router.replace("/onboarding");
-      } else if (!state.isAuthenticated) {
-        // User needs to authenticate
-        router.replace("/auth");
+        console.log('🆕 First time user - redirecting to onboarding');
+        await clearSession();
+        navigationService.safeNavigate("/onboarding");
+        return;
+      }
+
+      // Check for valid session first
+      const hasValidSessionToken = await tryAutoAuthenticate();
+      console.log('🔑 Valid session token:', hasValidSessionToken);
+
+      if (hasValidSessionToken) {
+        // Valid session exists - go directly to main app
+        console.log('✅ Valid session found - navigating to main app');
+        navigationService.safeNavigate("/(tabs)");
       } else {
-        // User is authenticated - go to main app
-        router.replace("/(tabs)");
+        // No valid session - user needs to authenticate
+        console.log('🔐 No valid session - redirecting to auth');
+        navigationService.safeNavigate("/auth");
       }
     } catch (error) {
-      console.error("Error checking app state:", error);
-      router.replace("/onboarding");
+      console.error("❌ Error checking app state:", error);
+      // Clear session on error and go to onboarding as fallback
+      await clearSession();
+      navigationService.safeNavigate("/onboarding");
     } finally {
-      setIsLoading(false);
+      // Delay to prevent navigation conflicts
+      setTimeout(() => setIsLoading(false), 300);
     }
   };
 

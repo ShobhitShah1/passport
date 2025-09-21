@@ -12,42 +12,66 @@ interface NotesWidgetProps {
   maxNotesCount: number;
 }
 
-export function NotesWidget({ 
-  notes = [], 
+export function NotesWidget({
+  notes = [],
   widgetTheme = 'holographic',
-  maxNotesCount = 5 
+  maxNotesCount = 4
 }: NotesWidgetProps) {
   const displayNotes = notes.slice(0, maxNotesCount);
-  
-  // Theme configurations
+
+  // Enhanced theme configurations
   const themes = {
     holographic: {
-      backgroundColor: '#0d1117',
+      backgroundColor: '#0a0a0b',
+      gradientStart: '#0d1117',
+      gradientEnd: '#161b22',
       primaryColor: '#00d4ff',
-      secondaryColor: '#00ff88',
-      textColor: '#ffffff',
-      borderColor: '#00d4ff',
+      secondaryColor: '#8b5cf6',
+      accentColor: '#00ff7f',
+      textColor: '#f0f6fc',
+      textSecondary: '#8b949e',
+      borderColor: '#30363d',
+      cardBackground: 'rgba(0, 212, 255, 0.1)',
+      shadowColor: '#00d4ff',
     },
     cyber: {
       backgroundColor: '#0a0a0a',
+      gradientStart: '#000000',
+      gradientEnd: '#1a1a1a',
       primaryColor: '#00ff41',
       secondaryColor: '#ff0080',
+      accentColor: '#ffff00',
       textColor: '#ffffff',
+      textSecondary: '#888888',
       borderColor: '#00ff41',
+      cardBackground: 'rgba(0, 255, 65, 0.1)',
+      shadowColor: '#00ff41',
     },
     neon: {
       backgroundColor: '#0f0f0f',
+      gradientStart: '#1a0a1a',
+      gradientEnd: '#0a0a1a',
       primaryColor: '#ff006e',
       secondaryColor: '#8338ec',
+      accentColor: '#fb5607',
       textColor: '#ffffff',
+      textSecondary: '#cccccc',
       borderColor: '#ff006e',
+      cardBackground: 'rgba(255, 0, 110, 0.1)',
+      shadowColor: '#ff006e',
     },
     minimal: {
       backgroundColor: '#1e1e1e',
+      gradientStart: '#2d2d2d',
+      gradientEnd: '#1a1a1a',
       primaryColor: '#ffffff',
       secondaryColor: '#888888',
+      accentColor: '#0066cc',
       textColor: '#ffffff',
-      borderColor: '#333333',
+      textSecondary: '#aaaaaa',
+      borderColor: '#444444',
+      cardBackground: 'rgba(255, 255, 255, 0.05)',
+      shadowColor: '#ffffff',
     },
   };
 
@@ -60,245 +84,273 @@ export function NotesWidget({
         width: 'match_parent',
         backgroundColor: currentTheme.backgroundColor,
         borderRadius: 16,
-        borderWidth: 2,
+        borderWidth: 1,
         borderColor: currentTheme.borderColor,
-        padding: 16,
+        padding: 0,
+        margin: 0,
         justifyContent: 'flex-start',
         alignItems: 'stretch',
+        flex: 1,
       }}
+      clickAction="OPEN_APP"
     >
-      {/* Header */}
+      {/* Header with enhanced styling */}
       <FlexWidget
         style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          marginBottom: 12,
-          paddingBottom: 8,
+          backgroundColor: currentTheme.gradientStart,
+          borderTopLeftRadius: 15,
+          borderTopRightRadius: 15,
           borderBottomWidth: 1,
           borderBottomColor: currentTheme.primaryColor,
+          paddingHorizontal: 12,
+          paddingVertical: 12,
+          width: '100%',
         }}
       >
-        <TextWidget
-          text="🔒 SECURE NOTES"
-          style={{
-            fontSize: 16,
-            fontWeight: 'bold',
-            color: currentTheme.primaryColor,
-            letterSpacing: 2,
-          }}
-        />
-        <FlexWidget style={{ flex: 1 }} />
-        <TextWidget
-          text={`${notes.length}`}
-          style={{
-            fontSize: 14,
-            color: currentTheme.textColor,
-            fontWeight: 'bold',
-            backgroundColor: currentTheme.secondaryColor,
-            paddingHorizontal: 8,
-            paddingVertical: 2,
-            borderRadius: 8,
-          }}
-        />
-      </FlexWidget>
-
-      {/* Notes List or Empty State */}
-      {displayNotes.length > 0 ? (
-        <FlexWidget style={{ flex: 1 }}>
-          {displayNotes.map((note, index) => (
-            <FlexWidget
-              key={note.id}
-              style={{
-                marginBottom: index < displayNotes.length - 1 ? 8 : 0,
-                backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                borderRadius: 8,
-                padding: 12,
-                borderLeftWidth: 3,
-                borderLeftColor: currentTheme.secondaryColor,
-              }}
-            >
-              <TextWidget
-                text={note.title.length > 25 ? `${note.title.slice(0, 25)}...` : note.title}
-                style={{
-                  fontSize: 14,
-                  fontWeight: 'bold',
-                  color: currentTheme.textColor,
-                  marginBottom: 4,
-                }}
-              />
-              
-              <TextWidget
-                text={note.content.length > 40 ? `${note.content.slice(0, 40)}...` : note.content}
-                style={{
-                  fontSize: 12,
-                  color: currentTheme.secondaryColor,
-                  marginBottom: 4,
-                }}
-              />
-
-              <FlexWidget
-                style={{
-                  flexDirection: 'row',
-                  justifyContent: 'space-between',
-                }}
-              >
-                <TextWidget
-                  text={note.category.toUpperCase()}
-                  style={{
-                    fontSize: 10,
-                    color: currentTheme.primaryColor,
-                    fontWeight: 'bold',
-                    letterSpacing: 1,
-                  }}
-                />
-                <TextWidget
-                  text={new Date(note.updatedAt).toLocaleDateString()}
-                  style={{
-                    fontSize: 10,
-                    color: currentTheme.secondaryColor,
-                  }}
-                />
-              </FlexWidget>
-            </FlexWidget>
-          ))}
-        </FlexWidget>
-      ) : (
         <FlexWidget
           style={{
-            flex: 1,
-            justifyContent: 'center',
+            flexDirection: 'row',
             alignItems: 'center',
+            justifyContent: 'space-between',
+            width: '100%',
           }}
         >
-          <TextWidget
-            text="🔐"
+          <FlexWidget
             style={{
-              fontSize: 48,
-              marginBottom: 16,
+              flexDirection: 'row',
+              alignItems: 'center',
             }}
-          />
-          <TextWidget
-            text="NO SECURE NOTES"
+          >
+            <TextWidget
+              text="🔐"
+              style={{
+                fontSize: 18,
+                marginRight: 8,
+              }}
+            />
+            <TextWidget
+              text="PASSPORT"
+              style={{
+                fontSize: 16,
+                fontWeight: 'bold',
+                color: currentTheme.primaryColor,
+                letterSpacing: 1,
+              }}
+            />
+          </FlexWidget>
+
+          <FlexWidget
             style={{
-              fontSize: 16,
-              color: currentTheme.secondaryColor,
-              fontWeight: 'bold',
-              letterSpacing: 2,
-              textAlign: 'center',
+              backgroundColor: currentTheme.primaryColor,
+              paddingHorizontal: 10,
+              paddingVertical: 4,
+              borderRadius: 12,
             }}
-          />
-          <TextWidget
-            text="Open Passport to create notes"
-            style={{
-              fontSize: 12,
-              color: currentTheme.secondaryColor,
-              textAlign: 'center',
-              marginTop: 8,
-            }}
-          />
+          >
+            <TextWidget
+              text={`${notes.length} NOTES`}
+              style={{
+                fontSize: 11,
+                color: currentTheme.backgroundColor,
+                fontWeight: 'bold',
+                letterSpacing: 0.5,
+              }}
+            />
+          </FlexWidget>
         </FlexWidget>
-      )}
+      </FlexWidget>
+
+      {/* Content area */}
+      <FlexWidget
+        style={{
+          flex: 1,
+          paddingHorizontal: 12,
+          paddingVertical: 10,
+          backgroundColor: currentTheme.backgroundColor,
+          width: '100%',
+        }}
+      >
+        {displayNotes.length > 0 ? (
+          <FlexWidget style={{ flex: 1, gap: 8, width: '100%' }}>
+            {displayNotes.map((note, index) => (
+              <FlexWidget
+                key={note.id}
+                style={{
+                  backgroundColor: currentTheme.cardBackground,
+                  borderRadius: 10,
+                  padding: 10,
+                  borderLeftWidth: 3,
+                  borderLeftColor: currentTheme.accentColor,
+                  borderWidth: 1,
+                  borderColor: currentTheme.borderColor,
+                  width: '100%',
+                  alignSelf: 'stretch',
+                }}
+                clickAction={{
+                  type: 'OPEN_URI',
+                  uri: `passport://note/${note.id}`,
+                }}
+              >
+                <FlexWidget
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    marginBottom: 6,
+                    width: '100%',
+                  }}
+                >
+                  <TextWidget
+                    text={note.title.length > 20 ? `${note.title.slice(0, 20)}...` : note.title}
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 'bold',
+                      color: currentTheme.textColor,
+                      flex: 1,
+                    }}
+                  />
+                  <FlexWidget
+                    style={{
+                      backgroundColor: currentTheme.secondaryColor,
+                      paddingHorizontal: 6,
+                      paddingVertical: 2,
+                      borderRadius: 6,
+                      marginLeft: 8,
+                    }}
+                  >
+                    <TextWidget
+                      text={note.category.toUpperCase()}
+                      style={{
+                        fontSize: 8,
+                        color: currentTheme.backgroundColor,
+                        fontWeight: 'bold',
+                        letterSpacing: 0.5,
+                      }}
+                    />
+                  </FlexWidget>
+                </FlexWidget>
+
+                <TextWidget
+                  text={note.content.length > 35 ? `${note.content.slice(0, 35)}...` : note.content}
+                  style={{
+                    fontSize: 11,
+                    color: currentTheme.textSecondary,
+                    marginBottom: 6,
+                    lineHeight: 14,
+                  }}
+                />
+
+                <FlexWidget
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    width: '100%',
+                  }}
+                >
+                  <TextWidget
+                    text="•••"
+                    style={{
+                      fontSize: 12,
+                      color: currentTheme.accentColor,
+                      letterSpacing: 2,
+                    }}
+                  />
+                  <TextWidget
+                    text={new Date(note.updatedAt).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric'
+                    })}
+                    style={{
+                      fontSize: 9,
+                      color: currentTheme.textSecondary,
+                      fontWeight: 'bold',
+                    }}
+                  />
+                </FlexWidget>
+              </FlexWidget>
+            ))}
+          </FlexWidget>
+        ) : (
+          <FlexWidget
+            style={{
+              flex: 1,
+              justifyContent: 'center',
+              alignItems: 'center',
+              width: '100%',
+            }}
+          >
+            <TextWidget
+              text="🔒"
+              style={{
+                fontSize: 40,
+                marginBottom: 12,
+              }}
+            />
+            <TextWidget
+              text="NO NOTES YET"
+              style={{
+                fontSize: 14,
+                color: currentTheme.textSecondary,
+                fontWeight: 'bold',
+                letterSpacing: 1,
+                textAlign: 'center',
+                marginBottom: 6,
+              }}
+            />
+            <TextWidget
+              text="Tap to create secure notes"
+              style={{
+                fontSize: 11,
+                color: currentTheme.textSecondary,
+                textAlign: 'center',
+              }}
+            />
+          </FlexWidget>
+        )}
+      </FlexWidget>
 
       {/* Footer */}
       <FlexWidget
         style={{
-          marginTop: 12,
-          paddingTop: 8,
+          backgroundColor: currentTheme.gradientEnd,
+          borderBottomLeftRadius: 15,
+          borderBottomRightRadius: 15,
           borderTopWidth: 1,
-          borderTopColor: currentTheme.primaryColor,
+          borderTopColor: currentTheme.borderColor,
+          paddingVertical: 8,
+          paddingHorizontal: 12,
           alignItems: 'center',
+          width: '100%',
         }}
       >
-        <TextWidget
-          text="TAP TO OPEN PASSPORT"
+        <FlexWidget
           style={{
-            fontSize: 10,
-            color: currentTheme.secondaryColor,
-            letterSpacing: 1,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '100%',
           }}
-        />
+        >
+          <TextWidget
+            text="⚡"
+            style={{
+              fontSize: 12,
+              marginRight: 6,
+            }}
+          />
+          <TextWidget
+            text="TAP TO OPEN"
+            style={{
+              fontSize: 10,
+              color: currentTheme.primaryColor,
+              fontWeight: 'bold',
+              letterSpacing: 1,
+            }}
+          />
+        </FlexWidget>
       </FlexWidget>
     </FlexWidget>
   );
 }
 
-// Small widget variant
-export function NotesWidgetSmall({ 
-  notes = [], 
-  widgetTheme = 'holographic' 
-}: Omit<NotesWidgetProps, 'maxNotesCount'>) {
-  const themes = {
-    holographic: {
-      backgroundColor: '#0d1117',
-      primaryColor: '#00d4ff',
-      secondaryColor: '#00ff88',
-      textColor: '#ffffff',
-      borderColor: '#00d4ff',
-    },
-    cyber: {
-      backgroundColor: '#0a0a0a',
-      primaryColor: '#00ff41',
-      secondaryColor: '#ff0080',
-      textColor: '#ffffff',
-      borderColor: '#00ff41',
-    },
-    neon: {
-      backgroundColor: '#0f0f0f',
-      primaryColor: '#ff006e',
-      secondaryColor: '#8338ec',
-      textColor: '#ffffff',
-      borderColor: '#ff006e',
-    },
-    minimal: {
-      backgroundColor: '#1e1e1e',
-      primaryColor: '#ffffff',
-      secondaryColor: '#888888',
-      textColor: '#ffffff',
-      borderColor: '#333333',
-    },
-  };
-
-  const currentTheme = themes[widgetTheme];
-
-  return (
-    <FlexWidget
-      style={{
-        height: 'match_parent',
-        width: 'match_parent',
-        backgroundColor: currentTheme.backgroundColor,
-        borderRadius: 16,
-        borderWidth: 2,
-        borderColor: currentTheme.borderColor,
-        padding: 16,
-        justifyContent: 'center',
-        alignItems: 'center',
-      }}
-    >
-      <TextWidget
-        text="🔒"
-        style={{
-          fontSize: 24,
-          marginBottom: 8,
-        }}
-      />
-      <TextWidget
-        text={notes.length.toString()}
-        style={{
-          fontSize: 32,
-          fontWeight: 'bold',
-          color: currentTheme.primaryColor,
-          marginBottom: 4,
-        }}
-      />
-      <TextWidget
-        text="NOTES"
-        style={{
-          fontSize: 12,
-          color: currentTheme.secondaryColor,
-          letterSpacing: 1,
-          textAlign: 'center',
-        }}
-      />
-    </FlexWidget>
-  );
-}

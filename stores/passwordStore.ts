@@ -4,15 +4,16 @@ import { MMKV } from 'react-native-mmkv';
 import { Alert } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { Password, SecureNote, UserSettings, AuthField, PasswordStrength } from '../types';
-import { 
-  savePasswords, 
-  loadPasswords, 
-  saveSecureNotes, 
-  loadSecureNotes, 
-  saveSettings, 
+import {
+  savePasswords,
+  loadPasswords,
+  saveSecureNotes,
+  loadSecureNotes,
+  saveSettings,
   loadSettings,
-  verifyMasterPassword 
+  verifyMasterPassword
 } from '../services/storage/secureStorage';
+import WidgetUpdateService from '../services/widget/WidgetUpdateService';
 
 // Initialize MMKV
 const storage = new MMKV();
@@ -153,6 +154,9 @@ export const usePasswordStore = create<PasswordStore>()(
             error: null,
           });
 
+          // Update widgets with loaded notes
+          WidgetUpdateService.updateWidgets(secureNotes);
+
           return true;
         } catch (error) {
           set({ 
@@ -270,8 +274,11 @@ export const usePasswordStore = create<PasswordStore>()(
 
         const updatedNotes = [...state.secureNotes, newNote];
         await saveSecureNotes(updatedNotes, state.masterPassword);
-        
+
         set({ secureNotes: updatedNotes });
+
+        // Update widgets with new notes
+        WidgetUpdateService.onNoteAdded(updatedNotes);
       },
 
       updateSecureNote: async (id, updates) => {
@@ -280,15 +287,18 @@ export const usePasswordStore = create<PasswordStore>()(
           throw new Error('Not authenticated');
         }
 
-        const updatedNotes = state.secureNotes.map(n => 
-          n.id === id 
+        const updatedNotes = state.secureNotes.map(n =>
+          n.id === id
             ? { ...n, ...updates, updatedAt: new Date() }
             : n
         );
 
         await saveSecureNotes(updatedNotes, state.masterPassword);
-        
+
         set({ secureNotes: updatedNotes });
+
+        // Update widgets with updated notes
+        WidgetUpdateService.onNoteUpdated(updatedNotes);
       },
 
       deleteSecureNote: async (id) => {
@@ -299,8 +309,11 @@ export const usePasswordStore = create<PasswordStore>()(
 
         const updatedNotes = state.secureNotes.filter(n => n.id !== id);
         await saveSecureNotes(updatedNotes, state.masterPassword);
-        
+
         set({ secureNotes: updatedNotes });
+
+        // Update widgets with remaining notes
+        WidgetUpdateService.onNoteDeleted(updatedNotes);
       },
 
       // Settings management

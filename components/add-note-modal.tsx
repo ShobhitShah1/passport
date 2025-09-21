@@ -4,6 +4,7 @@ import Input from "@/components/ui/Input";
 import { ReachPressable } from "@/components/ui/ReachPressable";
 import Colors from "@/constants/Colors";
 import { useAppContext } from "@/hooks/useAppContext";
+import { usePasswordManager } from "@/hooks/usePasswordManager";
 import { saveSecureNotes } from "@/services/storage/secureStorage";
 import { SecureNote } from "@/types";
 import { Ionicons } from "@expo/vector-icons";
@@ -183,6 +184,7 @@ const NOTE_CATEGORIES = [
 
 export default function AddNoteModal({ visible, onClose, existingNote }: AddNoteModalProps) {
   const { state, dispatch } = useAppContext();
+  const { addSecureNote, updateSecureNote } = usePasswordManager();
 
   const [formData, setFormData] = useState({
     title: "",
@@ -287,14 +289,13 @@ export default function AddNoteModal({ visible, onClose, existingNote }: AddNote
           updatedAt: new Date(),
         };
 
-        dispatch({ type: "UPDATE_SECURE_NOTE", payload: updatedNote });
-
-        if (state.masterPassword) {
-          const updatedNotes = state.secureNotes.map((note) =>
-            note.id === existingNote.id ? updatedNote : note
-          );
-          await saveSecureNotes(updatedNotes, state.masterPassword);
-        }
+        await updateSecureNote(existingNote.id, {
+          title: updatedNote.title,
+          content: updatedNote.content,
+          category: updatedNote.category,
+          tags: updatedNote.tags,
+          updatedAt: updatedNote.updatedAt,
+        });
 
         Alert.alert(
           "NEURAL LINK SUCCESS",
@@ -302,8 +303,7 @@ export default function AddNoteModal({ visible, onClose, existingNote }: AddNote
         );
       } else {
         // Create new note
-        const newNote: SecureNote = {
-          id: Date.now().toString(),
+        await addSecureNote({
           title: formData.title.trim(),
           content: formData.content.trim(),
           category: formData.category,
@@ -312,16 +312,7 @@ export default function AddNoteModal({ visible, onClose, existingNote }: AddNote
             .map((tag) => tag.trim())
             .filter((tag) => tag.length > 0),
           isFavorite: false,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
-
-        dispatch({ type: "ADD_SECURE_NOTE", payload: newNote });
-
-        if (state.masterPassword) {
-          const updatedNotes = [...state.secureNotes, newNote];
-          await saveSecureNotes(updatedNotes, state.masterPassword);
-        }
+        });
 
         Alert.alert(
           "NEURAL LINK SUCCESS",

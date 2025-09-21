@@ -19,12 +19,14 @@ interface SpaceNoteCardProps {
   note: SecureNote;
   index: number;
   onEdit?: (note: SecureNote) => void;
+  onDelete?: (note: SecureNote) => void;
 }
 
 export const SpaceNoteCard: React.FC<SpaceNoteCardProps> = ({
   note,
   index,
   onEdit,
+  onDelete,
 }) => {
   const cardScale = useSharedValue(1);
   const cardOpacity = useSharedValue(0);
@@ -202,6 +204,31 @@ export const SpaceNoteCard: React.FC<SpaceNoteCardProps> = ({
                 pressScale={0.95}
               >
                 <Ionicons name="create-outline" size={18} color={color} />
+              </ReachPressable>
+              <ReachPressable
+                style={[styles.actionBtn, { backgroundColor: "rgba(255, 71, 87, 0.15)" }]}
+                onPress={() => {
+                  Alert.alert(
+                    "Delete Note",
+                    `Are you sure you want to delete "${note.title}"? This action cannot be undone.`,
+                    [
+                      { text: "Cancel", style: "cancel" },
+                      {
+                        text: "Delete",
+                        style: "destructive",
+                        onPress: () => {
+                          if (onDelete) {
+                            onDelete(note);
+                          }
+                        },
+                      },
+                    ]
+                  );
+                }}
+                reachScale={1.05}
+                pressScale={0.95}
+              >
+                <Ionicons name="trash-outline" size={18} color="#ff4757" />
               </ReachPressable>
             </View>
           </View>

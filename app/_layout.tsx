@@ -51,6 +51,7 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (loaded) {
+      // Hide the native splash screen when fonts are loaded
       SplashScreen.hideAsync();
       // Initialize Android widgets
       try {

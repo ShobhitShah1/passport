@@ -3,6 +3,7 @@ import { ReachPressable } from "@/components/ui/ReachPressable";
 import { SpaceNoteCard } from "@/components/notes/SpaceNoteCard";
 import Colors from "@/constants/Colors";
 import { useAppContext } from "@/hooks/useAppContext";
+import { usePasswordStore } from "@/stores/passwordStore";
 import { getInstalledApps } from "@/services/apps/appDetection";
 import { InstalledApp, SecureNote } from "@/types";
 import { Ionicons } from "@expo/vector-icons";
@@ -334,6 +335,7 @@ const CategoryFilter = ({
 
 export default function AppsScreen() {
   const { state, dispatch } = useAppContext();
+  const { secureNotes, deleteSecureNote } = usePasswordStore();
   const insets = useSafeAreaInsets();
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -384,7 +386,7 @@ export default function AppsScreen() {
   }, [searchQuery, selectedCategory, installedApps]);
 
   const filteredNotes = useMemo(() => {
-    let filtered = state.secureNotes || [];
+    let filtered = secureNotes || [];
 
     if (searchQuery) {
       filtered = filtered.filter(
@@ -401,7 +403,7 @@ export default function AppsScreen() {
       (a, b) =>
         new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
     );
-  }, [searchQuery, state.secureNotes]);
+  }, [searchQuery, secureNotes]);
 
   const appsWithPasswords = useMemo(() => {
     const passwordAppIds = new Set(state.passwords.map((p) => p.appId));
@@ -447,6 +449,17 @@ export default function AppsScreen() {
   const handleEditNote = (note: SecureNote) => {
     setEditingNote(note);
     setNoteModalVisible(true);
+  };
+
+  const handleDeleteNote = async (note: SecureNote) => {
+    try {
+      await deleteSecureNote(note.id);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert("Success", "Note deleted successfully");
+    } catch (error) {
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert("Error", "Failed to delete note");
+    }
   };
 
   const copyToClipboard = async (text: string, label: string) => {
@@ -750,6 +763,7 @@ export default function AppsScreen() {
                 note={item}
                 index={index}
                 onEdit={handleEditNote}
+                onDelete={handleDeleteNote}
               />
             </View>
           )}

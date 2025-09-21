@@ -10,12 +10,14 @@ interface SecureNotesSectionProps {
   notes: SecureNote[];
   onAddNote?: () => void;
   onEditNote?: (note: SecureNote) => void;
+  onDeleteNote?: (note: SecureNote) => void;
 }
 
 export const SecureNotesSection: React.FC<SecureNotesSectionProps> = ({
   notes,
   onAddNote,
   onEditNote,
+  onDeleteNote,
 }) => {
   return (
     <View style={styles.notesSection}>
@@ -36,7 +38,12 @@ export const SecureNotesSection: React.FC<SecureNotesSectionProps> = ({
       <View style={styles.notesGrid}>
         {notes.map((note, index) => (
           <View key={note.id} style={styles.noteCardWrapper}>
-            <SpaceNoteCard note={note} index={index} onEdit={onEditNote} />
+            <SpaceNoteCard
+              note={note}
+              index={index}
+              onEdit={onEditNote}
+              onDelete={onDeleteNote}
+            />
           </View>
         ))}
       </View>

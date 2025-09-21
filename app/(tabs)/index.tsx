@@ -1,11 +1,12 @@
 import HolographicBackground from "@/components/HolographicBackground";
+import { SecureNotesSection } from "@/components/notes/SecureNotesSection";
 import AppIcon from "@/components/ui/AppIcon";
 import { ReachPressable } from "@/components/ui/ReachPressable";
-import { SecureNotesSection } from "@/components/notes/SecureNotesSection";
 import Colors from "@/constants/Colors";
 import { useAppContext } from "@/hooks/useAppContext";
 import { useNavigationOptimization } from "@/hooks/useNavigationOptimization";
 import { usePasswordStore } from "@/stores/passwordStore";
+import { usePasswordManager } from "@/hooks/usePasswordManager";
 import { Password, PasswordStrength, SecureNote } from "@/types";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -13,7 +14,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
 import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
-import * as Clipboard from "expo-clipboard";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -37,7 +37,7 @@ const SpaceHeader = React.memo(({ userName }: { userName?: string }) => {
 
   const getUserGreeting = () => {
     if (userName) return `Welcome back, ${userName}`;
-    return "Welcome, Stranger 👋";
+    return "Welcome, Commander";
   };
 
   const formatDate = () => {
@@ -48,26 +48,18 @@ const SpaceHeader = React.memo(({ userName }: { userName?: string }) => {
     });
   };
 
+  const getGreetingIcon = () => {
+    if (currentHour < 12) return "sunny";
+    if (currentHour < 17) return "partly-sunny";
+    return "moon";
+  };
+
   return (
     <View style={styles.spaceHeader}>
-      {/* Background Glow Effects */}
-      <View style={styles.headerGlow} />
-
-      {/* Main Header Content */}
-      <View style={styles.headerMainContainer}>
-        <View style={styles.headerLeft}>
-          {/* Greeting Section */}
-          <View style={styles.greetingContainer}>
-            <Text style={styles.greetingTime}>GOOD {getGreeting()}</Text>
-            <Text style={styles.greetingDate}>{formatDate()}</Text>
-          </View>
-
-          {/* Welcome Message */}
-          <Text style={styles.welcomeMessage}>{getUserGreeting()}</Text>
-          <Text style={styles.vaultSubtitle}>
-            🛡️ Your digital fortress is secure
-          </Text>
-        </View>
+      {/* Greeting Section */}
+      <View style={styles.greetingSection}>
+        <Text style={styles.greetingTime}>GOOD {getGreeting()}</Text>
+        <Text style={styles.welcomeMessage}>{getUserGreeting()}</Text>
       </View>
     </View>
   );
@@ -87,7 +79,7 @@ const SecurityStatus = ({
       return {
         icon: "shield-checkmark",
         color: Colors.dark.neonGreen,
-        text: "Fortress Secure",
+        text: "Excellent Security",
         description: "Your vault is well protected",
         bgColor: "rgba(0, 255, 127, 0.1)",
       };
@@ -95,15 +87,15 @@ const SecurityStatus = ({
       return {
         icon: "shield",
         color: Colors.dark.primary,
-        text: "Moderately Safe",
+        text: "Good Security",
         description: "Room for improvement",
         bgColor: "rgba(0, 212, 255, 0.1)",
       };
     return {
       icon: "warning",
       color: Colors.dark.warning,
-      text: "Security Risk",
-      description: "Immediate attention needed",
+      text: "Needs Attention",
+      description: "Some passwords are weak",
       bgColor: "rgba(255, 171, 0, 0.1)",
     };
   };
@@ -117,7 +109,6 @@ const SecurityStatus = ({
         colors={[bgColor, "rgba(255, 255, 255, 0.02)"]}
         style={styles.securityStatusGradient}
       >
-        {/* Header */}
         <View style={styles.statusHeader}>
           <View style={styles.statusIconContainer}>
             <LinearGradient
@@ -126,32 +117,40 @@ const SecurityStatus = ({
             >
               <Ionicons
                 name={icon as keyof typeof Ionicons.glyphMap}
-                size={26}
+                size={24}
                 color={color}
               />
             </LinearGradient>
           </View>
+
           <View style={styles.statusHeaderText}>
-            <Text style={styles.statusTitle}>🛡️ Vault Security</Text>
+            <Text style={styles.statusTitle}>Security Score</Text>
             <Text style={[styles.statusText, { color }]}>{text}</Text>
             <Text style={styles.statusDescription}>{description}</Text>
           </View>
+
           <View style={styles.statusScoreContainer}>
-            <Text style={styles.statusScore}>{score}</Text>
+            <Text style={[styles.statusScore, { color }]}>{score}</Text>
             <Text style={styles.statusScoreLabel}>Score</Text>
           </View>
         </View>
 
-        {/* Progress Bar */}
         <View style={styles.progressContainer}>
           <View style={styles.progressTrack}>
             <View
               style={[
                 styles.progressBar,
-                { width: `${progress * 100}%`, backgroundColor: color },
+                {
+                  width: `${progress * 100}%`,
+                  backgroundColor: color,
+                  shadowColor: color,
+                  shadowOpacity: 0.4,
+                  shadowRadius: 4,
+                },
               ]}
             />
           </View>
+
           <View style={styles.progressStats}>
             <Text style={styles.progressText}>{total} Total Items</Text>
             {weak > 0 && (
@@ -163,8 +162,6 @@ const SecurityStatus = ({
     </View>
   );
 };
-
-
 
 const PasswordPreviewSection = ({
   passwords,
@@ -180,6 +177,7 @@ const PasswordPreviewSection = ({
   const [selectedPassword, setSelectedPassword] = useState<Password | null>(
     null
   );
+  const { deletePassword: deletePasswordFromManager } = usePasswordManager();
 
   const PasswordPreviewCard = ({
     item,
@@ -385,6 +383,46 @@ const PasswordPreviewSection = ({
                       color={Colors.dark.neonGreen}
                     />
                   </ReachPressable>
+                  <ReachPressable
+                    style={[styles.actionChip, styles.deleteActionChip]}
+                    onPress={() => {
+                      Alert.alert(
+                        "Delete Password",
+                        `Are you sure you want to delete the password for ${item.appName}? This action cannot be undone.`,
+                        [
+                          { text: "Cancel", style: "cancel" },
+                          {
+                            text: "Delete",
+                            style: "destructive",
+                            onPress: async () => {
+                              try {
+                                await deletePasswordFromManager(item.id);
+                                await Haptics.notificationAsync(
+                                  Haptics.NotificationFeedbackType.Success
+                                );
+                                Alert.alert(
+                                  "Success",
+                                  "Password deleted successfully"
+                                );
+                              } catch (error) {
+                                await Haptics.notificationAsync(
+                                  Haptics.NotificationFeedbackType.Error
+                                );
+                                Alert.alert(
+                                  "Error",
+                                  "Failed to delete password"
+                                );
+                              }
+                            },
+                          },
+                        ]
+                      );
+                    }}
+                    reachScale={1.1}
+                    pressScale={0.9}
+                  >
+                    <Ionicons name="trash-outline" size={14} color="#ff4757" />
+                  </ReachPressable>
                 </View>
               </View>
 
@@ -525,7 +563,7 @@ const PasswordPreviewSection = ({
                     </Text>
                   </View>
                 </View>
-                <ReachPressable
+                {/* <ReachPressable
                   style={styles.quickLaunchButton}
                   onPress={() => {
                     if (item.url) {
@@ -561,7 +599,7 @@ const PasswordPreviewSection = ({
                     />
                     <Text style={styles.quickLaunchText}>Launch</Text>
                   </LinearGradient>
-                </ReachPressable>
+                </ReachPressable> */}
               </View>
             </LinearGradient>
           </View>
@@ -618,128 +656,136 @@ const PasswordPreviewSection = ({
 const SpaceWelcome = React.memo(({ onAddNote }: { onAddNote: () => void }) => {
   return (
     <View style={styles.emptyStateContainer}>
-      {/* Main Empty State Card */}
-      <View style={styles.emptyStateCard}>
-        <LinearGradient
-          colors={[
-            "rgba(0, 212, 255, 0.08)",
-            "rgba(139, 92, 246, 0.06)",
-            "rgba(0, 255, 136, 0.04)",
-          ]}
-          style={styles.emptyStateGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-        >
-          {/* Header Section */}
-          <View style={styles.emptyStateHeader}>
-            <View style={styles.emptyStateIconWrapper}>
-              <LinearGradient
-                colors={[Colors.dark.electricBlue, Colors.dark.purpleGlow]}
-                style={styles.emptyStateIcon}
-              >
-                <Ionicons
-                  name="shield"
-                  size={28}
-                  color={Colors.dark.background}
-                />
-              </LinearGradient>
-            </View>
+      {/* Floating Background Elements */}
+      <View style={styles.emptyStateBackground}>
+        <View style={styles.emptyFloatingOrb1} />
+        <View style={styles.emptyFloatingOrb2} />
+        <View style={styles.emptyFloatingOrb3} />
+      </View>
 
-            <Text style={styles.emptyStateTitle}>Your Vault is Empty</Text>
-            <Text style={styles.emptyStateSubtitle}>
-              Start securing your digital life by adding passwords and notes
-            </Text>
+      {/* Main Content */}
+      <View style={styles.emptyStateContent}>
+        {/* Hero Section */}
+        <View style={styles.emptyHeroSection}>
+          <View style={styles.emptyIconContainer}>
+            <LinearGradient
+              colors={[Colors.dark.primary, Colors.dark.purpleGlow]}
+              style={styles.emptyMainIcon}
+            >
+              <Ionicons
+                name="shield"
+                size={32}
+                color={Colors.dark.background}
+              />
+            </LinearGradient>
+            <View style={styles.emptyIconGlow} />
           </View>
 
-          {/* Quick Actions */}
-          <View style={styles.emptyStateActions}>
-            <ReachPressable
-              style={styles.emptyStatePrimaryAction}
-              onPress={() => router.push("/(tabs)/apps")}
-              reachScale={1.02}
-              pressScale={0.98}
-            >
-              <LinearGradient
-                colors={[Colors.dark.electricBlue, Colors.dark.purpleGlow]}
-                style={styles.emptyStatePrimaryGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-              >
-                <Ionicons name="key" size={18} color={Colors.dark.background} />
-                <Text style={styles.emptyStatePrimaryText}>
-                  Add First Password
-                </Text>
-              </LinearGradient>
-            </ReachPressable>
+          <Text style={styles.emptyTitle}>Welcome to Your Vault</Text>
+          <Text style={styles.emptySubtitle}>
+            Your secure digital fortress awaits. Start by adding your first
+            password or secure note.
+          </Text>
+        </View>
 
-            <ReachPressable
-              style={styles.emptyStateSecondaryAction}
-              onPress={onAddNote}
-              reachScale={1.02}
-              pressScale={0.98}
+        {/* Quick Start Cards */}
+        <View style={styles.emptyQuickStartGrid}>
+          <ReachPressable
+            style={styles.emptyQuickStartCard}
+            onPress={() => router.push("/(tabs)/apps")}
+            reachScale={1.02}
+            pressScale={0.98}
+          >
+            <LinearGradient
+              colors={["rgba(0, 212, 255, 0.15)", "rgba(0, 212, 255, 0.08)"]}
+              style={styles.emptyQuickStartGradient}
             >
-              <View style={styles.emptyStateSecondaryContent}>
+              <View style={styles.emptyQuickStartIcon}>
+                <Ionicons name="key" size={24} color={Colors.dark.primary} />
+              </View>
+              <Text style={styles.emptyQuickStartTitle}>Add Password</Text>
+              <Text style={styles.emptyQuickStartDesc}>
+                Store your first login credentials
+              </Text>
+            </LinearGradient>
+          </ReachPressable>
+
+          <ReachPressable
+            style={styles.emptyQuickStartCard}
+            onPress={onAddNote}
+            reachScale={1.02}
+            pressScale={0.98}
+          >
+            <LinearGradient
+              colors={["rgba(0, 255, 127, 0.15)", "rgba(0, 255, 127, 0.08)"]}
+              style={styles.emptyQuickStartGradient}
+            >
+              <View style={styles.emptyQuickStartIcon}>
                 <Ionicons
                   name="document-text"
-                  size={16}
-                  color={Colors.dark.electricBlue}
+                  size={24}
+                  color={Colors.dark.neonGreen}
                 />
-                <Text style={styles.emptyStateSecondaryText}>
-                  Create Secure Note
-                </Text>
               </View>
-            </ReachPressable>
-          </View>
+              <Text style={styles.emptyQuickStartTitle}>Create Note</Text>
+              <Text style={styles.emptyQuickStartDesc}>
+                Save important information securely
+              </Text>
+            </LinearGradient>
+          </ReachPressable>
+        </View>
 
-          {/* Features Preview */}
-          <View style={styles.emptyStateFeatures}>
-            <View style={styles.emptyStateFeature}>
-              <View
-                style={[
-                  styles.emptyStateFeatureIcon,
-                  { backgroundColor: "rgba(0, 212, 255, 0.1)" },
-                ]}
-              >
+        {/* Features Showcase */}
+        <View style={styles.emptyFeaturesSection}>
+          <Text style={styles.emptyFeaturesTitle}>Why Choose Our Vault?</Text>
+          <View style={styles.emptyFeaturesList}>
+            <View style={styles.emptyFeatureItem}>
+              <View style={styles.emptyFeatureBadge}>
                 <Ionicons
                   name="shield-checkmark"
                   size={16}
-                  color={Colors.dark.electricBlue}
+                  color={Colors.dark.neonGreen}
                 />
               </View>
-              <Text style={styles.emptyStateFeatureText}>Secure</Text>
+              <View style={styles.emptyFeatureContent}>
+                <Text style={styles.emptyFeatureTitle}>
+                  Bank-Level Security
+                </Text>
+                <Text style={styles.emptyFeatureDesc}>
+                  256-bit encryption keeps your data safe
+                </Text>
+              </View>
             </View>
-            <View style={styles.emptyStateFeature}>
-              <View
-                style={[
-                  styles.emptyStateFeatureIcon,
-                  { backgroundColor: "rgba(0, 212, 255, 0.1)" },
-                ]}
-              >
-                <Ionicons
-                  name="flash"
-                  size={16}
-                  color={Colors.dark.electricBlue}
-                />
+
+            <View style={styles.emptyFeatureItem}>
+              <View style={styles.emptyFeatureBadge}>
+                <Ionicons name="flash" size={16} color={Colors.dark.primary} />
               </View>
-              <Text style={styles.emptyStateFeatureText}>Fast</Text>
+              <View style={styles.emptyFeatureContent}>
+                <Text style={styles.emptyFeatureTitle}>Lightning Fast</Text>
+                <Text style={styles.emptyFeatureDesc}>
+                  Access your passwords instantly
+                </Text>
+              </View>
             </View>
-            <View style={styles.emptyStateFeature}>
-              <View
-                style={[
-                  styles.emptyStateFeatureIcon,
-                  { backgroundColor: "rgba(0, 212, 255, 0.1)" },
-                ]}
-              >
+
+            <View style={styles.emptyFeatureItem}>
+              <View style={styles.emptyFeatureBadge}>
                 <Ionicons
-                  name="cloud"
+                  name="eye-off"
                   size={16}
-                  color={Colors.dark.electricBlue}
+                  color={Colors.dark.purpleGlow}
                 />
               </View>
-              <Text style={styles.emptyStateFeatureText}>Synced</Text>
+              <View style={styles.emptyFeatureContent}>
+                <Text style={styles.emptyFeatureTitle}>Zero Knowledge</Text>
+                <Text style={styles.emptyFeatureDesc}>
+                  Only you can access your data
+                </Text>
+              </View>
             </View>
           </View>
-        </LinearGradient>
+        </View>
       </View>
     </View>
   );
@@ -747,16 +793,19 @@ const SpaceWelcome = React.memo(({ onAddNote }: { onAddNote: () => void }) => {
 
 export default function VaultScreen() {
   const { state } = useAppContext();
-  const passwordStore = usePasswordStore();
-  const { copyToClipboard } = usePasswordStore();
+  const {
+    passwords,
+    secureNotes,
+    copyToClipboard,
+    deletePassword,
+    deleteSecureNote,
+  } = usePasswordStore();
   const insets = useSafeAreaInsets();
   const { shouldRenderAnimations } = useNavigationOptimization();
   const [noteModalVisible, setNoteModalVisible] = useState(false);
   const [editingNote, setEditingNote] = useState<SecureNote | null>(null);
 
-  const allPasswords = passwordStore.isAuthenticated
-    ? passwordStore.passwords
-    : state.passwords;
+  const allPasswords = passwords;
 
   const recentPasswords: any = allPasswords
     .sort((a, b) => (b.lastUsed?.getTime() || 0) - (a.lastUsed?.getTime() || 0))
@@ -793,6 +842,17 @@ export default function VaultScreen() {
     setNoteModalVisible(true);
   };
 
+  const handleDeleteNote = async (note: SecureNote) => {
+    try {
+      await deleteSecureNote(note.id);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert("Success", "Note deleted successfully");
+    } catch (error) {
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert("Error", "Failed to delete note");
+    }
+  };
+
   const handleCloseNoteModal = () => {
     setNoteModalVisible(false);
     setEditingNote(null);
@@ -814,7 +874,7 @@ export default function VaultScreen() {
         <View style={styles.statsContainer}>
           <View style={styles.statCard}>
             <LinearGradient
-              colors={["rgba(0, 212, 255, 0.1)", "rgba(0, 212, 255, 0.05)"]}
+              colors={["rgba(0, 212, 255, 0.12)", "rgba(0, 212, 255, 0.06)"]}
               style={styles.statCardGradient}
             >
               <View style={styles.statIconContainer}>
@@ -829,7 +889,7 @@ export default function VaultScreen() {
 
           <View style={styles.statCard}>
             <LinearGradient
-              colors={["rgba(0, 255, 127, 0.1)", "rgba(0, 255, 127, 0.05)"]}
+              colors={["rgba(0, 255, 127, 0.12)", "rgba(0, 255, 127, 0.06)"]}
               style={styles.statCardGradient}
             >
               <View style={styles.statIconContainer}>
@@ -840,20 +900,20 @@ export default function VaultScreen() {
                 />
               </View>
               <View style={styles.statContent}>
-                <Text style={styles.statNumber}>
-                  {state.secureNotes.length}
-                </Text>
+                <Text style={styles.statNumber}>{secureNotes.length}</Text>
                 <Text style={styles.statLabel}>Secure Notes</Text>
               </View>
             </LinearGradient>
           </View>
         </View>
 
-        <SecurityStatus
-          score={securityScore}
-          total={totalPasswords}
-          weak={weakPasswords}
-        />
+        {(totalPasswords !== 0 || secureNotes.length !== 0) && (
+          <SecurityStatus
+            score={securityScore}
+            total={totalPasswords}
+            weak={weakPasswords}
+          />
+        )}
 
         {recentPasswords.length > 0 && (
           <PasswordPreviewSection
@@ -862,15 +922,16 @@ export default function VaultScreen() {
           />
         )}
 
-        {state.secureNotes.length > 0 && (
+        {secureNotes.length > 0 && (
           <SecureNotesSection
-            notes={state.secureNotes}
+            notes={secureNotes}
             onAddNote={() => setNoteModalVisible(true)}
             onEditNote={handleEditNote}
+            onDeleteNote={handleDeleteNote}
           />
         )}
 
-        {totalPasswords === 0 && state.secureNotes.length > 0 && (
+        {totalPasswords === 0 && secureNotes.length > 0 && (
           <View style={styles.emptyPasswordsSection}>
             <LinearGradient
               colors={[
@@ -939,7 +1000,7 @@ export default function VaultScreen() {
           </View>
         )}
 
-        {totalPasswords === 0 && state.secureNotes.length === 0 && (
+        {totalPasswords === 0 && secureNotes.length === 0 && (
           <SpaceWelcome onAddNote={() => setNoteModalVisible(true)} />
         )}
       </ScrollView>
@@ -969,15 +1030,12 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 20,
-    gap: 32,
+    paddingTop: 0,
+    gap: 24,
   },
-  // Enhanced Space Header
+  // Clean Space Header
   spaceHeader: {
-    paddingHorizontal: 10,
-    marginBottom: 0,
-    position: "relative",
-    overflow: "hidden",
+    paddingTop: 16,
   },
   headerContent: {
     flex: 1,
@@ -987,14 +1045,14 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     fontWeight: "500",
     letterSpacing: 1,
-    marginBottom: 4,
+    // marginBottom: 4,
   },
   vaultTitle: {
     fontSize: 26,
     fontWeight: "700",
     color: Colors.dark.text,
     letterSpacing: 0.3,
-    marginBottom: 16,
+    // marginBottom: 16,
   },
   headerStats: {
     flexDirection: "row",
@@ -1052,14 +1110,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.dark.primary,
   },
-  // Simple Security Status
-  securityStatus: {
-    marginBottom: 0,
-    backgroundColor: "rgba(255, 255, 255, 0.02)",
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
-  },
   statusRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -1111,135 +1161,204 @@ const styles = StyleSheet.create({
   },
   // Modern Empty State Design
   emptyStateContainer: {
-    marginBottom: 20,
+    flex: 1,
+    paddingVertical: 20,
+    position: "relative",
   },
-  emptyStateCard: {
-    borderRadius: 24,
-    overflow: "hidden",
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 5,
+  emptyStateBackground: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
-  emptyStateGradient: {
-    padding: 32,
-    borderWidth: 1,
-    borderColor: Colors.dark.borderLight,
-    borderRadius: 24,
-  },
-  emptyStateHeader: {
-    alignItems: "center",
-    marginBottom: 32,
-  },
-  emptyStateIconWrapper: {
-    marginBottom: 20,
-    borderRadius: 28,
-    overflow: "hidden",
-    shadowColor: Colors.dark.electricBlue,
-    shadowOffset: { width: 0, height: 2 },
+  emptyFloatingOrb1: {
+    position: "absolute",
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: "rgba(0, 212, 255, 0.05)",
+    top: "10%",
+    right: "10%",
+    shadowColor: Colors.dark.primary,
+    shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowRadius: 20,
   },
-  emptyStateIcon: {
-    width: 56,
-    height: 56,
+  emptyFloatingOrb2: {
+    position: "absolute",
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "rgba(0, 255, 127, 0.04)",
+    bottom: "15%",
+    left: "5%",
+    shadowColor: Colors.dark.neonGreen,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.2,
+    shadowRadius: 15,
+  },
+  emptyFloatingOrb3: {
+    position: "absolute",
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: "rgba(139, 92, 246, 0.06)",
+    top: "50%",
+    right: "20%",
+    shadowColor: Colors.dark.purpleGlow,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+  },
+  emptyStateContent: {
+    paddingHorizontal: 0,
+    paddingVertical: 20,
+    gap: 32,
+    zIndex: 1,
+  },
+  emptyHeroSection: {
+    alignItems: "center",
+    gap: 16,
+  },
+  emptyIconContainer: {
+    position: "relative",
+    marginBottom: 8,
+  },
+  emptyMainIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     alignItems: "center",
     justifyContent: "center",
+    shadowColor: Colors.dark.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 6,
   },
-  emptyStateTitle: {
-    fontSize: 22,
+  emptyIconGlow: {
+    position: "absolute",
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: Colors.dark.primary,
+    opacity: 0.1,
+    top: -8,
+    left: -8,
+  },
+  emptyTitle: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: Colors.dark.text,
+    textAlign: "center",
+    letterSpacing: 0.3,
+    lineHeight: 32,
+  },
+  emptySubtitle: {
+    fontSize: 16,
+    color: Colors.dark.textSecondary,
+    textAlign: "center",
+    lineHeight: 24,
+    maxWidth: 300,
+    fontWeight: "500",
+  },
+  emptyQuickStartGrid: {
+    flexDirection: "row",
+    gap: 16,
+  },
+  emptyQuickStartCard: {
+    flex: 1,
+    borderRadius: 20,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  emptyQuickStartGradient: {
+    padding: 20,
+    alignItems: "center",
+    gap: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderRadius: 20,
+    minHeight: 120,
+  },
+  emptyQuickStartIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.15)",
+  },
+  emptyQuickStartTitle: {
+    fontSize: 16,
     fontWeight: "700",
     color: Colors.dark.text,
     textAlign: "center",
-    marginBottom: 12,
     letterSpacing: 0.2,
   },
-  emptyStateSubtitle: {
-    fontSize: 15,
-    color: Colors.dark.textSecondary,
+  emptyQuickStartDesc: {
+    fontSize: 13,
+    color: Colors.dark.textMuted,
     textAlign: "center",
-    lineHeight: 22,
-    maxWidth: 260,
-    fontWeight: "400",
-  },
-  emptyStateActions: {
-    gap: 12,
-    marginBottom: 32,
-  },
-  emptyStatePrimaryAction: {
-    borderRadius: 18,
-    overflow: "hidden",
-    shadowColor: Colors.dark.electricBlue,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  emptyStatePrimaryGradient: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    gap: 10,
-  },
-  emptyStatePrimaryText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: Colors.dark.background,
-    letterSpacing: 0.1,
-  },
-  emptyStateSecondaryAction: {
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: Colors.dark.borderLight,
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
-  },
-  emptyStateSecondaryContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    gap: 8,
-  },
-  emptyStateSecondaryText: {
-    fontSize: 15,
+    lineHeight: 18,
     fontWeight: "500",
-    color: Colors.dark.textSecondary,
   },
-  emptyStateFeatures: {
+  emptyFeaturesSection: {
+    gap: 20,
+  },
+  emptyFeaturesTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    textAlign: "center",
+    letterSpacing: 0.3,
+  },
+  emptyFeaturesList: {
+    gap: 16,
+  },
+  emptyFeatureItem: {
     flexDirection: "row",
-    justifyContent: "space-around",
-    paddingTop: 28,
-    borderTopWidth: 1,
-    borderTopColor: Colors.dark.border,
-    marginHorizontal: -8,
-  },
-  emptyStateFeature: {
     alignItems: "center",
-    flex: 1,
-    paddingHorizontal: 8,
+    gap: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: "rgba(255, 255, 255, 0.02)",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
-  emptyStateFeatureIcon: {
-    width: 45,
-    height: 45,
-    borderRadius: 50,
+  emptyFeatureBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 10,
     borderWidth: 1,
-    borderColor: Colors.dark.borderLight,
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
-  emptyStateFeatureText: {
+  emptyFeatureContent: {
+    flex: 1,
+    gap: 4,
+  },
+  emptyFeatureTitle: {
     fontSize: 16,
-    color: Colors.dark.textSecondary,
-    textAlign: "center",
     fontWeight: "600",
-    lineHeight: 16,
+    color: Colors.dark.text,
     letterSpacing: 0.2,
+  },
+  emptyFeatureDesc: {
+    fontSize: 14,
+    color: Colors.dark.textMuted,
+    fontWeight: "500",
+    lineHeight: 18,
   },
   welcomeIconContainer: {
     marginBottom: 32,
@@ -1367,20 +1486,17 @@ const styles = StyleSheet.create({
 
   // Password Preview Section
   passwordPreviewSection: {
-    marginBottom: 0,
+    gap: 16,
   },
   passwordPreviewTitle: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: "800",
     color: Colors.dark.text,
-    marginBottom: 20,
+    marginBottom: 16,
     letterSpacing: 0.4,
-    textShadowColor: "rgba(0, 212, 255, 0.2)",
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 6,
   },
   passwordPreviewGrid: {
-    gap: 20,
+    gap: 16,
   },
   passwordPreviewCard: {
     borderRadius: 24,
@@ -1459,6 +1575,10 @@ const styles = StyleSheet.create({
   copyActionChip: {
     backgroundColor: "rgba(0, 255, 136, 0.1)",
     borderColor: "rgba(0, 255, 136, 0.2)",
+  },
+  deleteActionChip: {
+    backgroundColor: "rgba(255, 71, 87, 0.1)",
+    borderColor: "rgba(255, 71, 87, 0.2)",
   },
   passwordAppInfo: {
     flexDirection: "row",
@@ -1627,7 +1747,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 16,
     paddingHorizontal: 24,
-    marginTop: 16,
+    marginTop: 8,
     borderRadius: 16,
     backgroundColor: "rgba(0, 212, 255, 0.08)",
     borderWidth: 1,
@@ -1640,8 +1760,7 @@ const styles = StyleSheet.create({
   },
   // Empty Passwords Section Styles
   emptyPasswordsSection: {
-    paddingHorizontal: 20,
-    paddingVertical: 24,
+    paddingVertical: 8,
   },
   emptyPasswordsCard: {
     borderRadius: 20,
@@ -1696,71 +1815,43 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
 
-  // New Enhanced Header Styles
-  headerGlow: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 110,
-    backgroundColor: "rgba(0, 212, 255, 0.03)",
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: "rgba(0, 212, 255, 0.08)",
-  },
-  headerMainContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    paddingTop: 16,
-    overflow: "hidden",
-    paddingHorizontal: 4,
-    zIndex: 1,
-    height: 110,
-  },
-  headerLeft: {
-    flex: 1,
-  },
-  greetingContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
+  greetingSection: {
+    gap: 4,
+    paddingHorizontal: 10,
   },
   greetingTime: {
-    fontSize: 13,
+    fontSize: 14,
     color: Colors.dark.primary,
     fontWeight: "700",
     letterSpacing: 1.2,
-  },
-  greetingDate: {
-    fontSize: 12,
-    color: Colors.dark.textMuted,
-    fontWeight: "500",
-    letterSpacing: 0.5,
+    // marginBottom: 8,
   },
   welcomeMessage: {
     fontSize: 28,
     fontWeight: "800",
     color: Colors.dark.text,
     letterSpacing: 0.2,
-    marginVertical: 5,
+    // marginBottom: 6,
+    lineHeight: 32,
   },
   vaultSubtitle: {
-    fontSize: 14,
+    fontSize: 15,
     color: Colors.dark.textSecondary,
     fontWeight: "500",
     letterSpacing: 0.3,
+    lineHeight: 20,
   },
   statsContainer: {
     flexDirection: "row",
-    gap: 16,
+    gap: 10,
   },
   statCard: {
     flex: 1,
   },
   statCardGradient: {
     borderRadius: 18,
-    padding: 18,
+    paddingHorizontal: 10,
+    paddingVertical: 15,
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1.5,
@@ -1773,8 +1864,8 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   statIconContainer: {
-    width: 40,
-    height: 40,
+    width: 38,
+    height: 38,
     borderRadius: 20,
     backgroundColor: "rgba(255, 255, 255, 0.1)",
     alignItems: "center",
@@ -1803,9 +1894,15 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
   },
 
-  // Enhanced Security Status Styles
+  // Simplified Security Status Styles
+  securityStatus: {
+    backgroundColor: "rgba(255, 255, 255, 0.02)",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
+  },
   securityStatusGradient: {
-    borderRadius: 20,
+    borderRadius: 16,
     padding: 20,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.08)",
@@ -1861,7 +1958,6 @@ const styles = StyleSheet.create({
   statusScore: {
     fontSize: 24,
     fontWeight: "900",
-    color: Colors.dark.text,
     marginBottom: 2,
   },
   statusScoreLabel: {
@@ -1883,10 +1979,7 @@ const styles = StyleSheet.create({
   progressBar: {
     height: "100%",
     borderRadius: 3,
-    shadowColor: Colors.dark.primary,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 4,
   },
   progressStats: {
     flexDirection: "row",

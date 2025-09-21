@@ -4,13 +4,12 @@ import {
   requestWidgetUpdate,
   requestWidgetUpdateById,
 } from 'react-native-android-widget';
-import { NotesWidget, NotesWidgetSmall } from './NotesWidget';
+import { NotesWidget } from './NotesWidget';
 import { SecureNote } from '@/types';
 
 // Widget configurations
 export const WIDGET_CONFIGS = {
-  NOTES_LARGE: 'NotesLarge',
-  NOTES_SMALL: 'NotesSmall',
+  NOTES: 'NotesWidget',
 } as const;
 
 export interface WidgetData {
@@ -58,26 +57,6 @@ export function NotesWidgetPreview({
   );
 }
 
-export function SmallNotesWidgetPreview({
-  notes,
-  widgetTheme = 'holographic'
-}: {
-  notes: SecureNote[];
-  widgetTheme?: 'cyber' | 'holographic' | 'neon' | 'minimal';
-}) {
-  return (
-    <WidgetPreview
-      renderWidget={() => (
-        <NotesWidgetSmall
-          notes={notes}
-          widgetTheme={widgetTheme}
-        />
-      )}
-      width={160}
-      height={160}
-    />
-  );
-}
 
 // Widget data management
 let widgetDataStore: Record<string, WidgetData> = {};
@@ -100,34 +79,33 @@ export function setWidgetData(widgetId: string, data: Partial<WidgetData>) {
 }
 
 export function updateWidgetData(notes: SecureNote[]) {
-  // Update all widgets with new notes data
-  Object.keys(widgetDataStore).forEach(widgetId => {
-    setWidgetData(widgetId, { notes });
-  });
-  
+  console.log(`Updating widgets with ${notes.length} notes`);
+
+  // If no widgets exist in store yet, create a default one
+  if (Object.keys(widgetDataStore).length === 0) {
+    setWidgetData('default', {
+      notes,
+      widgetTheme: 'holographic',
+      maxNotesCount: 5
+    });
+  } else {
+    // Update all existing widgets with new notes data
+    Object.keys(widgetDataStore).forEach(widgetId => {
+      setWidgetData(widgetId, { notes });
+    });
+  }
+
   // Request widget updates with proper API
   requestWidgetUpdate({
     widgetName: 'NotesWidget',
     renderWidget: (widgetInfo) => {
       const widgetData = getWidgetData(widgetInfo.widgetId.toString());
+      console.log(`Rendering widget with ${widgetData.notes.length} notes`);
       return (
         <NotesWidget
           notes={notes}
           widgetTheme={widgetData.widgetTheme}
           maxNotesCount={widgetData.maxNotesCount}
-        />
-      );
-    },
-  });
-  
-  requestWidgetUpdate({
-    widgetName: 'NotesWidgetSmall',
-    renderWidget: (widgetInfo) => {
-      const widgetData = getWidgetData(widgetInfo.widgetId.toString());
-      return (
-        <NotesWidgetSmall
-          notes={notes}
-          widgetTheme={widgetData.widgetTheme}
         />
       );
     },
@@ -145,12 +123,24 @@ export function updateWidgetMaxNotes(widgetId: string, maxNotesCount: number) {
 }
 
 // Initialize widgets with proper handlers
-export function initializeWidgets() {
+export function initializeWidgets(initialNotes: SecureNote[] = []) {
+  console.log(`Initializing widgets with ${initialNotes.length} notes`);
+
+  // Initialize default widget data with current notes
+  if (Object.keys(widgetDataStore).length === 0) {
+    setWidgetData('default', {
+      notes: initialNotes,
+      widgetTheme: 'holographic',
+      maxNotesCount: 5
+    });
+  }
+
   // Set up widget update handlers
   requestWidgetUpdate({
     widgetName: 'NotesWidget',
     renderWidget: (widgetInfo) => {
       const widgetData = getWidgetData(widgetInfo.widgetId.toString());
+      console.log(`Initial widget render with ${widgetData.notes.length} notes`);
       return (
         <NotesWidget
           notes={widgetData.notes}
@@ -163,22 +153,6 @@ export function initializeWidgets() {
       console.log('NotesWidget not found on home screen');
     },
   });
-  
-  requestWidgetUpdate({
-    widgetName: 'NotesWidgetSmall',
-    renderWidget: (widgetInfo) => {
-      const widgetData = getWidgetData(widgetInfo.widgetId.toString());
-      return (
-        <NotesWidgetSmall
-          notes={widgetData.notes}
-          widgetTheme={widgetData.widgetTheme}
-        />
-      );
-    },
-    widgetNotFound: () => {
-      console.log('NotesWidgetSmall not found on home screen');
-    },
-  });
-  
+
   console.log('Widgets initialized successfully');
 }

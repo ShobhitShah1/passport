@@ -792,14 +792,8 @@ const SpaceWelcome = React.memo(({ onAddNote }: { onAddNote: () => void }) => {
 });
 
 export default function VaultScreen() {
-  const { state } = useAppContext();
-  const {
-    passwords,
-    secureNotes,
-    copyToClipboard,
-    deletePassword,
-    deleteSecureNote,
-  } = usePasswordStore();
+  const { passwords, secureNotes, copyToClipboard, deleteSecureNote } =
+    usePasswordStore();
   const insets = useSafeAreaInsets();
   const { shouldRenderAnimations } = useNavigationOptimization();
   const [noteModalVisible, setNoteModalVisible] = useState(false);
@@ -1758,9 +1752,8 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: Colors.dark.primary,
   },
-  // Empty Passwords Section Styles
   emptyPasswordsSection: {
-    paddingVertical: 8,
+    // paddingVertical: 8,
   },
   emptyPasswordsCard: {
     borderRadius: 20,

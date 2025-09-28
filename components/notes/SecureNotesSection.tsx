@@ -99,7 +99,6 @@ const styles = StyleSheet.create({
     gap: 0,
   },
   noteCardWrapper: {
-    marginBottom: 20,
     paddingHorizontal: 2,
   },
   emptyNotes: {

@@ -159,7 +159,12 @@ export const SpaceNoteCard: React.FC<SpaceNoteCardProps> = ({
         >
           <View style={styles.cardHeader}>
             <View style={styles.headerLeft}>
-              <View style={[styles.iconContainer, { backgroundColor: color + "20" }]}>
+              <View
+                style={[
+                  styles.iconContainer,
+                  { backgroundColor: color + "20" },
+                ]}
+              >
                 <Ionicons
                   name={icon as keyof typeof Ionicons.glyphMap}
                   size={20}
@@ -171,13 +176,25 @@ export const SpaceNoteCard: React.FC<SpaceNoteCardProps> = ({
                   {note.title}
                 </Text>
                 <View style={styles.metaInfo}>
-                  <View style={[styles.categoryBadge, { backgroundColor: color + "20", borderColor: color + "40" }]}>
+                  <View
+                    style={[
+                      styles.categoryBadge,
+                      {
+                        backgroundColor: color + "20",
+                        borderColor: color + "40",
+                      },
+                    ]}
+                  >
                     <Text style={[styles.categoryLabel, { color }]}>
                       {note.category}
                     </Text>
                   </View>
                   {note.isFavorite && (
-                    <Ionicons name="heart" size={12} color={Colors.dark.warning} />
+                    <Ionicons
+                      name="heart"
+                      size={12}
+                      color={Colors.dark.warning}
+                    />
                   )}
                 </View>
               </View>
@@ -206,7 +223,10 @@ export const SpaceNoteCard: React.FC<SpaceNoteCardProps> = ({
                 <Ionicons name="create-outline" size={18} color={color} />
               </ReachPressable>
               <ReachPressable
-                style={[styles.actionBtn, { backgroundColor: "rgba(255, 71, 87, 0.15)" }]}
+                style={[
+                  styles.actionBtn,
+                  { backgroundColor: "rgba(255, 71, 87, 0.15)" },
+                ]}
                 onPress={() => {
                   Alert.alert(
                     "Delete Note",
@@ -253,7 +273,11 @@ export const SpaceNoteCard: React.FC<SpaceNoteCardProps> = ({
               <Text style={styles.infoLabel}>{readingTime}m read</Text>
             </View>
             <View style={styles.encryptionBadge}>
-              <Ionicons name="lock-closed" size={10} color={Colors.dark.neonGreen} />
+              <Ionicons
+                name="lock-closed"
+                size={10}
+                color={Colors.dark.neonGreen}
+              />
             </View>
           </View>
         </LinearGradient>

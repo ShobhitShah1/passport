@@ -261,7 +261,6 @@ const AppCard = React.memo(
   }
 );
 
-
 const LoadingSpinner = React.memo(() => {
   const rotation = useSharedValue(0);
 
@@ -334,7 +333,7 @@ const CategoryFilter = ({
 };
 
 export default function AppsScreen() {
-  const { state, dispatch } = useAppContext();
+  const { state } = useAppContext();
   const { secureNotes, deleteSecureNote } = usePasswordStore();
   const insets = useSafeAreaInsets();
 
@@ -756,7 +755,6 @@ export default function AppsScreen() {
             { paddingBottom: insets.bottom + 110 },
           ]}
           showsVerticalScrollIndicator={false}
-          ItemSeparatorComponent={() => <View style={styles.noteSeparator} />}
           renderItem={({ item, index }) => (
             <View style={styles.noteItemContainer}>
               <SpaceNoteCard
@@ -1203,13 +1201,13 @@ const styles = StyleSheet.create({
   },
   notesList: {
     paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingTop: 5,
   },
   noteItemContainer: {
     paddingHorizontal: 2,
   },
   noteSeparator: {
-    height: 20,
+    // height: 20,
   },
   noteDateText: {
     fontSize: 12,

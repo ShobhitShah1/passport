@@ -8,6 +8,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
+import * as Haptics from "expo-haptics";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -92,6 +93,7 @@ export default memo(function PinKeypad({
   const handleDigitPress = React.useCallback(
     (digit: string) => {
       if (pin.length < maxLength) {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
         onDigitPress(digit);
       }
     },

@@ -184,7 +184,8 @@ export default function SetupScreen() {
         return;
       }
 
-      const types = await LocalAuthentication.supportedAuthenticationTypesAsync();
+      const types =
+        await LocalAuthentication.supportedAuthenticationTypesAsync();
       if (types.length === 0) {
         setBiometricType([]);
         return;
@@ -192,7 +193,7 @@ export default function SetupScreen() {
 
       setBiometricType(types);
     } catch (error) {
-      console.error('Error checking biometric support:', error);
+      console.error("Error checking biometric support:", error);
       setBiometricType([]);
     }
   };
@@ -306,7 +307,7 @@ export default function SetupScreen() {
           settings.biometricEnabled = isBiometricEnabled;
           await saveSettings(settings);
         }
-        
+
         // Authenticate the user through the context after successful setup
         const authSuccess = await authenticate(masterPin);
         if (authSuccess) {
@@ -333,7 +334,8 @@ export default function SetupScreen() {
     setIsLoading(true);
     try {
       const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: "Verify your biometric authentication to enable this feature",
+        promptMessage:
+          "Verify your biometric authentication to enable this feature",
         biometricsSecurityLevel: "strong",
         cancelLabel: "Cancel",
         fallbackLabel: "Use PIN",

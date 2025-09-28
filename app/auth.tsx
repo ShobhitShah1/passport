@@ -9,6 +9,7 @@ import Animated, {
   Easing,
   useAnimatedStyle,
   useSharedValue,
+  withDelay,
   withRepeat,
   withSequence,
   withSpring,
@@ -104,17 +105,17 @@ const BiometricParticles = React.memo(({ isActive }: { isActive: boolean }) => {
 
   const ParticleComponent = ({ particle }: { particle: any }) => {
     const animatedStyle = useAnimatedStyle(() => {
-      const x = Math.cos((particle.angle * Math.PI) / 180) * particle.distance.value;
-      const y = Math.sin((particle.angle * Math.PI) / 180) * particle.distance.value;
+      const x =
+        Math.cos((particle.angle * Math.PI) / 180) * particle.distance.value;
+      const y =
+        Math.sin((particle.angle * Math.PI) / 180) * particle.distance.value;
       return {
         transform: [{ translateX: x }, { translateY: y }],
         opacity: particle.opacity.value,
       };
     });
 
-    return (
-      <AnimatedView style={[styles.biometricParticle, animatedStyle]} />
-    );
+    return <AnimatedView style={[styles.biometricParticle, animatedStyle]} />;
   };
 
   return (
@@ -127,70 +128,90 @@ const BiometricParticles = React.memo(({ isActive }: { isActive: boolean }) => {
 });
 
 // Enhanced Biometric Ring Component
-const BiometricRing = React.memo(({ isActive, progress }: { isActive: boolean; progress: Animated.SharedValue<number> }) => {
-  const ringRotation = useSharedValue(0);
-  const ringScale = useSharedValue(1);
+const BiometricRing = React.memo(
+  ({
+    isActive,
+    progress,
+  }: {
+    isActive: boolean;
+    progress: Animated.SharedValue<number>;
+  }) => {
+    const ringRotation = useSharedValue(0);
+    const ringScale = useSharedValue(1);
 
-  React.useEffect(() => {
-    if (isActive) {
-      ringRotation.value = withRepeat(
-        withTiming(360, { duration: 3000, easing: Easing.linear }),
-        -1
-      );
-      ringScale.value = withRepeat(
-        withSequence(
-          withTiming(1.05, { duration: 1500 }),
-          withTiming(1, { duration: 1500 })
-        ),
-        -1
-      );
-    } else {
-      ringRotation.value = withTiming(0, { duration: 500 });
-      ringScale.value = withTiming(1, { duration: 500 });
-    }
-  }, [isActive]);
+    React.useEffect(() => {
+      if (isActive) {
+        ringRotation.value = withRepeat(
+          withTiming(360, { duration: 3000, easing: Easing.linear }),
+          -1
+        );
+        ringScale.value = withRepeat(
+          withSequence(
+            withTiming(1.05, { duration: 1500 }),
+            withTiming(1, { duration: 1500 })
+          ),
+          -1
+        );
+      } else {
+        ringRotation.value = withTiming(0, { duration: 500 });
+        ringScale.value = withTiming(1, { duration: 500 });
+      }
+    }, [isActive]);
 
-  const ringStyle = useAnimatedStyle(() => ({
-    transform: [
-      { rotate: `${ringRotation.value}deg` },
-      { scale: ringScale.value }
-    ],
-  }));
+    const ringStyle = useAnimatedStyle(() => ({
+      transform: [
+        { rotate: `${ringRotation.value}deg` },
+        { scale: ringScale.value },
+      ],
+    }));
 
-  return (
-    <AnimatedView style={[styles.biometricRing, ringStyle]}>
-      <Svg width={120} height={120} viewBox="0 0 120 120">
-        <Defs>
-          <SvgLinearGradient id="ringGradient" x1="0" y1="0" x2="1" y2="1">
-            <Stop offset="0%" stopColor={Colors.dark.neonGreen} stopOpacity="0.8" />
-            <Stop offset="50%" stopColor={Colors.dark.primary} stopOpacity="0.6" />
-            <Stop offset="100%" stopColor={Colors.dark.secondary} stopOpacity="0.4" />
-          </SvgLinearGradient>
-        </Defs>
-        <Circle
-          cx="60"
-          cy="60"
-          r="50"
-          fill="none"
-          stroke="url(#ringGradient)"
-          strokeWidth="2"
-          strokeDasharray="8 4"
-          opacity={isActive ? 1 : 0.3}
-        />
-        <Circle
-          cx="60"
-          cy="60"
-          r="40"
-          fill="none"
-          stroke={Colors.dark.primary}
-          strokeWidth="1"
-          strokeDasharray="4 8"
-          opacity={isActive ? 0.6 : 0.2}
-        />
-      </Svg>
-    </AnimatedView>
-  );
-});
+    return (
+      <AnimatedView style={[styles.biometricRing, ringStyle]}>
+        <Svg width={120} height={120} viewBox="0 0 120 120">
+          <Defs>
+            <SvgLinearGradient id="ringGradient" x1="0" y1="0" x2="1" y2="1">
+              <Stop
+                offset="0%"
+                stopColor={Colors.dark.neonGreen}
+                stopOpacity="0.8"
+              />
+              <Stop
+                offset="50%"
+                stopColor={Colors.dark.primary}
+                stopOpacity="0.6"
+              />
+              <Stop
+                offset="100%"
+                stopColor={Colors.dark.secondary}
+                stopOpacity="0.4"
+              />
+            </SvgLinearGradient>
+          </Defs>
+          <Circle
+            cx="60"
+            cy="60"
+            r="50"
+            fill="none"
+            stroke="url(#ringGradient)"
+            strokeWidth="2"
+            strokeDasharray="8 4"
+            opacity={isActive ? 1 : 0.3}
+          />
+          <Circle
+            cx="60"
+            cy="60"
+            r="40"
+            fill="none"
+            stroke={Colors.dark.primary}
+            strokeWidth="1"
+            strokeDasharray="4 8"
+            opacity={isActive ? 0.6 : 0.2}
+          />
+        </Svg>
+      </AnimatedView>
+    );
+  }
+);
 
 const BiometricAuthButton = React.memo(
   ({
@@ -220,7 +241,9 @@ const BiometricAuthButton = React.memo(
     const glowStyle = useAnimatedStyle(() => ({
       shadowOpacity: glow.value * glowIntensity.value,
       shadowRadius: 25 + glow.value * 15,
-      shadowColor: isAuthenticating ? Colors.dark.primary : Colors.dark.neonGreen,
+      shadowColor: isAuthenticating
+        ? Colors.dark.primary
+        : Colors.dark.neonGreen,
     }));
 
     const rotationStyle = useAnimatedStyle(() => ({
@@ -237,10 +260,7 @@ const BiometricAuthButton = React.memo(
           withTiming(360, { duration: 2000, easing: Easing.linear }),
           -1
         );
-        progress.value = withRepeat(
-          withTiming(1, { duration: 2000 }),
-          -1
-        );
+        progress.value = withRepeat(withTiming(1, { duration: 2000 }), -1);
         pulseScale.value = withRepeat(
           withSequence(
             withTiming(1.02, { duration: 1000 }),
@@ -273,7 +293,9 @@ const BiometricAuthButton = React.memo(
 
         <Animated.View style={[styles.biometricButton, scaleStyle, glowStyle]}>
           {/* Outer Ring Glow Effect */}
-          <AnimatedView style={[styles.biometricButtonOuterGlow, buttonGradientStyle]} />
+          <AnimatedView
+            style={[styles.biometricButtonOuterGlow, buttonGradientStyle]}
+          />
 
           <ReachPressable
             onPress={onPress}
@@ -285,8 +307,16 @@ const BiometricAuthButton = React.memo(
             <LinearGradient
               colors={
                 isAuthenticating
-                  ? [Colors.dark.primary, Colors.dark.secondary, Colors.dark.primary]
-                  : [Colors.dark.neonGreen, Colors.dark.primary, Colors.dark.neonGreen]
+                  ? [
+                      Colors.dark.primary,
+                      Colors.dark.secondary,
+                      Colors.dark.primary,
+                    ]
+                  : [
+                      Colors.dark.neonGreen,
+                      Colors.dark.primary,
+                      Colors.dark.neonGreen,
+                    ]
               }
               style={styles.biometricButtonContent}
               start={{ x: 0, y: 0 }}
@@ -295,9 +325,14 @@ const BiometricAuthButton = React.memo(
             >
               {/* Icon Container with Enhanced Animation */}
               <View style={styles.biometricIconContainer}>
-                <AnimatedView style={[styles.biometricIconBackground, rotationStyle]}>
+                <AnimatedView
+                  style={[styles.biometricIconBackground, rotationStyle]}
+                >
                   <LinearGradient
-                    colors={['rgba(255, 255, 255, 0.1)', 'rgba(255, 255, 255, 0.05)']}
+                    colors={[
+                      "rgba(255, 255, 255, 0.1)",
+                      "rgba(255, 255, 255, 0.05)",
+                    ]}
                     style={styles.biometricIconBackgroundGradient}
                   />
                 </AnimatedView>
@@ -311,11 +346,15 @@ const BiometricAuthButton = React.memo(
 
               {/* Enhanced Text with Typing Effect */}
               <View style={styles.biometricTextContainer}>
-                <Text style={[
-                  styles.biometricButtonText,
-                  { color: isAuthenticating ? Colors.dark.text : "#0a0a0b" }
-                ]}>
-                  {isAuthenticating ? "Authenticating..." : `Unlock with ${text}`}
+                <Text
+                  style={[
+                    styles.biometricButtonText,
+                    { color: isAuthenticating ? Colors.dark.text : "#0a0a0b" },
+                  ]}
+                >
+                  {isAuthenticating
+                    ? "Authenticating..."
+                    : `Unlock with ${text}`}
                 </Text>
 
                 {/* Animated Progress Dots */}
@@ -569,7 +608,7 @@ function AuthScreen() {
       <View style={styles.content}>
         <View style={styles.header}>
           <View style={styles.spaceshipContainer}>
-            <Svg width={100} height={100} viewBox="0 0 100 100">
+            <Svg width={120} height={120} viewBox="0 0 100 100">
               <Defs>
                 <SvgLinearGradient
                   id="spaceshipGradient"
@@ -590,6 +629,7 @@ function AuthScreen() {
                 opacity={0.3}
               />
             </Svg>
+
             <Ionicons
               name="rocket"
               size={50}

@@ -3,13 +3,14 @@ import { DarkTheme, Theme, ThemeProvider } from "@react-navigation/native";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import "react-native-reanimated";
 
 import Colors from "@/constants/Colors";
 import { AppProvider } from "@/hooks/useAppContext";
 import { ModalProvider } from "../contexts/ModalContext";
 import { initializeWidgets } from "@/widgets/WidgetProvider";
+import CustomSplashScreen from "@/components/SplashScreen";
 
 // Custom space theme
 const SpaceTheme: Theme = {
@@ -63,7 +64,7 @@ export default function RootLayout() {
   }, [loaded]);
 
   if (!loaded) {
-    return null;
+    return <CustomSplashScreen />;
   }
 
   return <RootLayoutNav />;
@@ -74,51 +75,51 @@ function RootLayoutNav() {
     <AppProvider>
       <ModalProvider>
         <ThemeProvider value={SpaceTheme}>
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            contentStyle: { backgroundColor: Colors.dark.background },
-            animation: "slide_from_right",
-          }}
-        >
-          <Stack.Screen
-            name="index"
-            options={{
+          <Stack
+            screenOptions={{
               headerShown: false,
-              gestureEnabled: false,
+              contentStyle: { backgroundColor: Colors.dark.background },
+              animation: "slide_from_right",
             }}
-          />
-          <Stack.Screen
-            name="onboarding"
-            options={{
-              headerShown: false,
-              presentation: "modal",
-              animation: "fade",
-            }}
-          />
-          <Stack.Screen
-            name="setup"
-            options={{
-              headerShown: false,
-              gestureEnabled: false,
-            }}
-          />
-          <Stack.Screen
-            name="auth"
-            options={{
-              headerShown: false,
-              gestureEnabled: false,
-              presentation: "modal",
-            }}
-          />
-          <Stack.Screen
-            name="(tabs)"
-            options={{
-              headerShown: false,
-              gestureEnabled: false,
-            }}
-          />
-        </Stack>
+          >
+            <Stack.Screen
+              name="index"
+              options={{
+                headerShown: false,
+                gestureEnabled: false,
+              }}
+            />
+            <Stack.Screen
+              name="onboarding"
+              options={{
+                headerShown: false,
+                presentation: "modal",
+                animation: "fade",
+              }}
+            />
+            <Stack.Screen
+              name="setup"
+              options={{
+                headerShown: false,
+                gestureEnabled: false,
+              }}
+            />
+            <Stack.Screen
+              name="auth"
+              options={{
+                headerShown: false,
+                gestureEnabled: false,
+                presentation: "modal",
+              }}
+            />
+            <Stack.Screen
+              name="(tabs)"
+              options={{
+                headerShown: false,
+                gestureEnabled: false,
+              }}
+            />
+          </Stack>
         </ThemeProvider>
       </ModalProvider>
     </AppProvider>

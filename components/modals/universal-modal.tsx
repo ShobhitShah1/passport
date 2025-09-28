@@ -2,17 +2,17 @@ import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect } from "react";
-import { Modal, StyleSheet, Text, View, Dimensions } from "react-native";
+import { Dimensions, Modal, StyleSheet, Text, View } from "react-native";
 import Animated, {
+  Easing,
+  runOnJS,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
-  withSequence,
-  withTiming,
   withDelay,
-  runOnJS,
-  Easing,
   withRepeat,
+  withSequence,
+  withSpring,
+  withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, {
@@ -21,8 +21,8 @@ import Svg, {
   Stop,
   LinearGradient as SvgLinearGradient,
 } from "react-native-svg";
-import { ReachPressable } from "../ui/ReachPressable";
 import Colors from "../../constants/Colors";
+import { ReachPressable } from "../ui";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
@@ -47,7 +47,13 @@ interface UniversalModalProps {
 
 const AnimatedBlurView = Animated.createAnimatedComponent(BlurView);
 
-const FloatingParticle = ({ particle, type }: { particle: any; type: ModalType }) => {
+const FloatingParticle = ({
+  particle,
+  type,
+}: {
+  particle: any;
+  type: ModalType;
+}) => {
   const getParticleColor = () => {
     switch (type) {
       case "success":
@@ -182,7 +188,7 @@ export default function UniversalModal({
 }: UniversalModalProps) {
   const insets = useSafeAreaInsets();
   const config = getModalConfig(type);
-  
+
   // Animation values
   const backdropOpacity = useSharedValue(0);
   const modalScale = useSharedValue(0.5);
@@ -198,13 +204,13 @@ export default function UniversalModal({
       backdropOpacity.value = withTiming(1, { duration: 300 });
       modalScale.value = withSpring(1, { damping: 15, stiffness: 200 });
       modalOpacity.value = withTiming(1, { duration: 300 });
-      
+
       // Icon animations
       iconScale.value = withDelay(
         200,
         withSpring(1, { damping: 12, stiffness: 150 })
       );
-      
+
       if (type === "success") {
         iconRotation.value = withDelay(
           200,
@@ -223,7 +229,7 @@ export default function UniversalModal({
           )
         );
       }
-      
+
       // Glow animation
       glowOpacity.value = withDelay(
         400,
@@ -235,12 +241,9 @@ export default function UniversalModal({
           -1
         )
       );
-      
+
       // Text animation
-      textOpacity.value = withDelay(
-        300,
-        withTiming(1, { duration: 500 })
-      );
+      textOpacity.value = withDelay(300, withTiming(1, { duration: 500 }));
 
       // Auto close
       if (autoClose) {
@@ -287,7 +290,10 @@ export default function UniversalModal({
   }));
 
   const iconContainerStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: iconScale.value }, { rotate: `${iconRotation.value}deg` }],
+    transform: [
+      { scale: iconScale.value },
+      { rotate: `${iconRotation.value}deg` },
+    ],
   }));
 
   const glowStyle = useAnimatedStyle(() => ({
@@ -331,24 +337,33 @@ export default function UniversalModal({
         tint="dark"
       >
         <FloatingParticles type={type} />
-        
+
         <Animated.View style={[styles.modalContainer, modalStyle]}>
           <View style={styles.modal}>
             {/* Header with icon */}
             <View style={styles.header}>
               <Animated.View style={[styles.iconContainer, iconContainerStyle]}>
-                <Animated.View 
+                <Animated.View
                   style={[
-                    styles.iconGlow, 
-                    glowStyle, 
-                    { backgroundColor: config.color }
-                  ]} 
+                    styles.iconGlow,
+                    glowStyle,
+                    { backgroundColor: config.color },
+                  ]}
                 />
                 <Svg width={80} height={80} viewBox="0 0 80 80">
                   <Defs>
-                    <SvgLinearGradient id={`iconGrad-${type}`} x1="0" y1="0" x2="1" y2="1">
+                    <SvgLinearGradient
+                      id={`iconGrad-${type}`}
+                      x1="0"
+                      y1="0"
+                      x2="1"
+                      y2="1"
+                    >
                       <Stop offset="0%" stopColor={config.color} />
-                      <Stop offset="100%" stopColor={config.gradientColors[1]} />
+                      <Stop
+                        offset="100%"
+                        stopColor={config.gradientColors[1]}
+                      />
                     </SvgLinearGradient>
                   </Defs>
                   <Circle
@@ -360,11 +375,7 @@ export default function UniversalModal({
                   />
                 </Svg>
                 <View style={styles.iconContent}>
-                  <Ionicons
-                    name={config.icon}
-                    size={32}
-                    color={config.color}
-                  />
+                  <Ionicons name={config.icon} size={32} color={config.color} />
                 </View>
               </Animated.View>
             </View>
@@ -380,18 +391,18 @@ export default function UniversalModal({
               {buttons.map((button, index) => {
                 const buttonConfig = getButtonStyle(button.style);
                 const buttonScale = useSharedValue(1);
-                
+
                 const buttonAnimatedStyle = useAnimatedStyle(() => ({
                   transform: [{ scale: buttonScale.value }],
                 }));
 
                 return (
-                  <Animated.View 
-                    key={index} 
+                  <Animated.View
+                    key={index}
                     style={[
                       styles.buttonWrapper,
                       buttonAnimatedStyle,
-                      buttons.length === 1 && styles.singleButton
+                      buttons.length === 1 && styles.singleButton,
                     ]}
                   >
                     <ReachPressable
@@ -403,12 +414,17 @@ export default function UniversalModal({
                       pressScale={0.98}
                     >
                       <LinearGradient
-                        colors={buttonConfig.colors}
+                        colors={buttonConfig.colors as any}
                         style={styles.buttonGradient}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 1 }}
                       >
-                        <Text style={[styles.buttonText, { color: buttonConfig.textColor }]}>
+                        <Text
+                          style={[
+                            styles.buttonText,
+                            { color: buttonConfig.textColor },
+                          ]}
+                        >
                           {button.text}
                         </Text>
                       </LinearGradient>

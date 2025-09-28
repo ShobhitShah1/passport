@@ -4,7 +4,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import Colors from "@/constants/Colors";
 import { SecureNote } from "@/types";
-import { usePasswordManager } from "@/hooks/usePasswordManager";
+import { usePasswordManager } from "@/hooks/use-password-manager";
 
 export default function NoteDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();

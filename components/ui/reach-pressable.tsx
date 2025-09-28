@@ -59,3 +59,5 @@ export function ReachPressable({
     </Pressable>
   );
 }
+
+export default ReachPressable;

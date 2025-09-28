@@ -1,12 +1,20 @@
-import AppIcon from "@/components/ui/AppIcon";
-import { ReachPressable } from "@/components/ui/ReachPressable";
-import { SpaceNoteCard } from "@/components/notes/SpaceNoteCard";
+import {
+  AppCard,
+  AppsHeader,
+  CategoryFilter,
+  LoadingSpinner,
+  ParallaxStarfield,
+} from "@/components/apps";
+import { SpaceNoteCard } from "@/components/notes/space-note-card";
+import { ReachPressable } from "@/components/ui";
 import Colors from "@/constants/Colors";
-import { useAppContext } from "@/hooks/useAppContext";
-import { usePasswordStore } from "@/stores/passwordStore";
+import { useAppContext } from "@/hooks/use-app-context";
 import { getInstalledApps } from "@/services/apps/appDetection";
+import { usePasswordStore } from "@/stores/passwordStore";
 import { InstalledApp, SecureNote } from "@/types";
 import { Ionicons } from "@expo/vector-icons";
+import * as Clipboard from "expo-clipboard";
+import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useMemo, useState } from "react";
 import {
@@ -19,318 +27,9 @@ import {
   TextInput,
   View,
 } from "react-native";
-import * as Clipboard from "expo-clipboard";
-import * as Haptics from "expo-haptics";
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withTiming,
-} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AddNoteModal from "../../components/add-note-modal";
 import AddPasswordModal from "../../components/add-password-modal";
-
-const TwinklingStar = React.memo(
-  ({ style, size }: { style: object; size: number }) => {
-    const opacity = useSharedValue(0.2);
-    const scale = useSharedValue(1);
-
-    React.useEffect(() => {
-      opacity.value = withRepeat(
-        withTiming(0.8, { duration: 2000 + Math.random() * 1000 }),
-        -1,
-        true
-      );
-      scale.value = withRepeat(
-        withTiming(1.2, { duration: 3000 + Math.random() * 1000 }),
-        -1,
-        true
-      );
-    }, []);
-
-    const animatedStyle = useAnimatedStyle(() => ({
-      opacity: opacity.value,
-      transform: [{ scale: scale.value }],
-    }));
-
-    return (
-      <Animated.View
-        style={[
-          styles.star,
-          { width: size, height: size, borderRadius: size / 2 },
-          style,
-          animatedStyle,
-        ]}
-      />
-    );
-  }
-);
-
-const ParallaxStarfield = React.memo(() => {
-  const stars = useMemo(
-    () =>
-      Array.from({ length: 15 }, (_, i) => ({
-        key: `star-${i}`,
-        left: `${Math.random() * 100}%`,
-        top: `${Math.random() * 100}%`,
-        size: Math.random() * 2 + 0.5,
-      })),
-    []
-  );
-
-  return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      {stars.map((star) => (
-        <TwinklingStar
-          key={star.key}
-          style={{ left: star.left, top: star.top }}
-          size={star.size}
-        />
-      ))}
-    </View>
-  );
-});
-
-const AppCard = React.memo(
-  ({
-    app,
-    index,
-    hasPassword,
-    onAddPassword,
-  }: {
-    app: InstalledApp;
-    index: number;
-    hasPassword: boolean;
-    onAddPassword: (app: InstalledApp) => void;
-  }) => {
-    const cardScale = useSharedValue(1);
-    const glowOpacity = useSharedValue(0.1);
-
-    React.useEffect(() => {
-      glowOpacity.value = withRepeat(
-        withTiming(hasPassword ? 0.4 : 0.2, { duration: 2000 }),
-        -1,
-        true
-      );
-    }, [index, hasPassword]);
-
-    const handlePress = () => {
-      if (hasPassword) {
-        Alert.alert(
-          "Password Exists",
-          `You already have credentials saved for ${app.name}. Would you like to view or edit them?`,
-          [
-            { text: "Cancel", style: "cancel" },
-            {
-              text: "View",
-              onPress: () => {
-                /* TODO: Navigate to password details */
-              },
-            },
-          ]
-        );
-      } else {
-        onAddPassword(app);
-      }
-    };
-
-    const handlePressIn = () => {
-      "worklet";
-      cardScale.value = withTiming(0.96, { duration: 150 });
-    };
-
-    const handlePressOut = () => {
-      "worklet";
-      cardScale.value = withTiming(1, { duration: 150 });
-    };
-
-    const animatedStyle = useAnimatedStyle(() => ({
-      transform: [{ scale: cardScale.value }],
-    }));
-
-    return (
-      <Animated.View style={[styles.appCardContainer, animatedStyle]}>
-        <ReachPressable
-          onPress={handlePress}
-          onPressIn={handlePressIn}
-          onPressOut={handlePressOut}
-          style={styles.appCardPressable}
-          reachScale={1}
-          pressScale={1}
-        >
-          <LinearGradient
-            colors={
-              hasPassword
-                ? [
-                    "rgba(0, 255, 136, 0.05)",
-                    "rgba(255, 255, 255, 0.02)",
-                    "rgba(0, 212, 255, 0.03)",
-                  ]
-                : [
-                    "rgba(255, 255, 255, 0.08)",
-                    "rgba(255, 255, 255, 0.02)",
-                    "rgba(255, 255, 255, 0.01)",
-                  ]
-            }
-            style={[
-              styles.appCard,
-              !app.isSupported && styles.appCardUnsupported,
-              hasPassword && styles.appCardSecured,
-            ]}
-          >
-            <View style={styles.appCardHeader}>
-              <View style={styles.appIconWrapper}>
-                <AppIcon
-                  appName={app.name}
-                  appId={app.id}
-                  icon={app.icon}
-                  size="medium"
-                  showGlow={app.isSupported}
-                />
-                {hasPassword && (
-                  <View style={styles.securityBadge}>
-                    <Ionicons
-                      name="shield-checkmark"
-                      size={12}
-                      color={Colors.dark.neonGreen}
-                    />
-                  </View>
-                )}
-              </View>
-              <View style={styles.appCardInfo}>
-                <Text style={styles.appName} numberOfLines={1}>
-                  {app.name}
-                </Text>
-                <View style={styles.appMetaRow}>
-                  <Text style={styles.appCategory} numberOfLines={1}>
-                    {app.category ||
-                      (app.isSupported ? "Supported" : "Custom App")}
-                  </Text>
-                </View>
-                {app.isSupported && (
-                  <View style={styles.supportedIndicator}>
-                    <View style={styles.supportedDot} />
-                    <Text style={styles.supportedText}>Verified</Text>
-                  </View>
-                )}
-              </View>
-            </View>
-
-            <View style={styles.appCardContent}>
-              {app.packageName && (
-                <Text style={styles.packageName} numberOfLines={1}>
-                  {app.packageName}
-                </Text>
-              )}
-            </View>
-
-            <View style={styles.appCardFooter}>
-              <View style={styles.appCardActions}>
-                {hasPassword ? (
-                  <LinearGradient
-                    colors={[
-                      "rgba(0, 255, 136, 0.2)",
-                      "rgba(0, 255, 136, 0.1)",
-                    ]}
-                    style={styles.securedActionButton}
-                  >
-                    <Ionicons
-                      name="shield-checkmark"
-                      size={16}
-                      color={Colors.dark.neonGreen}
-                    />
-                    <Text style={styles.securedActionText}>Secured</Text>
-                  </LinearGradient>
-                ) : (
-                  <View style={styles.addActionButton}>
-                    <Ionicons
-                      name="add-circle"
-                      size={16}
-                      color={Colors.dark.primary}
-                    />
-                    <Text style={styles.addActionText}>Add Credentials</Text>
-                  </View>
-                )}
-              </View>
-            </View>
-          </LinearGradient>
-        </ReachPressable>
-      </Animated.View>
-    );
-  }
-);
-
-const LoadingSpinner = React.memo(() => {
-  const rotation = useSharedValue(0);
-
-  React.useEffect(() => {
-    rotation.value = withRepeat(withTiming(360, { duration: 2000 }), -1, false);
-  }, []);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${rotation.value}deg` }],
-  }));
-
-  return (
-    <View style={styles.loadingContainer}>
-      <Animated.View style={[styles.loadingSpinner, animatedStyle]}>
-        <Ionicons name="sync" size={32} color={Colors.dark.primary} />
-      </Animated.View>
-      <Text style={styles.loadingText}>Scanning installed apps...</Text>
-      <Text style={styles.loadingSubtext}>This may take a moment</Text>
-    </View>
-  );
-});
-
-const CategoryFilter = ({
-  categories,
-  selectedCategory,
-  onCategoryChange,
-}: {
-  categories: string[];
-  selectedCategory: string;
-  onCategoryChange: (category: string) => void;
-}) => {
-  return (
-    <View style={styles.categoryContainer}>
-      <FlatList
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        data={categories}
-        keyExtractor={(item) => item}
-        contentContainerStyle={{ paddingHorizontal: 20, gap: 10 }}
-        renderItem={({ item, index }) => {
-          const isSelected = selectedCategory === item;
-          return (
-            <ReachPressable
-              onPress={() => onCategoryChange(item)}
-              style={[
-                styles.categoryChip,
-                isSelected && styles.categoryChipActive,
-              ]}
-              reachScale={1.05}
-              pressScale={0.95}
-            >
-              {isSelected ? (
-                <LinearGradient
-                  colors={[Colors.dark.primary, Colors.dark.secondary]}
-                  style={styles.categoryChipGradient}
-                >
-                  <Text style={styles.categoryTextActive}>{item}</Text>
-                </LinearGradient>
-              ) : (
-                <View style={styles.categoryChipContent}>
-                  <Text style={styles.categoryText}>{item}</Text>
-                </View>
-              )}
-            </ReachPressable>
-          );
-        }}
-      />
-    </View>
-  );
-};
 
 export default function AppsScreen() {
   const { state } = useAppContext();
@@ -475,112 +174,13 @@ export default function AppsScreen() {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <ParallaxStarfield />
 
-      <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <View style={styles.headerTextContainer}>
-            <Text style={styles.title}>
-              {viewMode === "apps" ? "🚀 Digital Vault" : "📝 Secure Notes"}
-            </Text>
-            <Text style={styles.subtitle}>
-              {viewMode === "apps"
-                ? loading
-                  ? "Scanning quantum space for installed applications..."
-                  : `${installedApps.length} apps detected • Select to secure credentials`
-                : "Store classified information with quantum encryption"}
-            </Text>
-          </View>
-
-          {viewMode === "notes" && (
-            <ReachPressable
-              onPress={() => setNoteModalVisible(true)}
-              style={styles.addButton}
-              reachScale={1.05}
-              pressScale={0.95}
-            >
-              <LinearGradient
-                colors={[Colors.dark.neonGreen, Colors.dark.primary]}
-                style={styles.addButtonGradient}
-              >
-                <Ionicons name="add" size={20} color={Colors.dark.background} />
-              </LinearGradient>
-            </ReachPressable>
-          )}
-        </View>
-
-        <View style={styles.toggleContainer}>
-          <LinearGradient
-            colors={["rgba(255, 255, 255, 0.08)", "rgba(255, 255, 255, 0.02)"]}
-            style={styles.toggleBackground}
-          >
-            <ReachPressable
-              onPress={() => setViewMode("apps")}
-              style={[
-                styles.toggleButton,
-                viewMode === "apps" && styles.toggleButtonActive,
-              ]}
-              reachScale={1.02}
-              pressScale={0.98}
-            >
-              {viewMode === "apps" && (
-                <LinearGradient
-                  colors={[Colors.dark.primary, Colors.dark.secondary]}
-                  style={styles.toggleButtonGradient}
-                />
-              )}
-              <Ionicons
-                name="apps"
-                size={16}
-                color={
-                  viewMode === "apps"
-                    ? Colors.dark.background
-                    : Colors.dark.textSecondary
-                }
-              />
-              <Text
-                style={[
-                  styles.toggleText,
-                  viewMode === "apps" && styles.toggleTextActive,
-                ]}
-              >
-                Apps
-              </Text>
-            </ReachPressable>
-            <ReachPressable
-              onPress={() => setViewMode("notes")}
-              style={[
-                styles.toggleButton,
-                viewMode === "notes" && styles.toggleButtonActive,
-              ]}
-              reachScale={1.02}
-              pressScale={0.98}
-            >
-              {viewMode === "notes" && (
-                <LinearGradient
-                  colors={[Colors.dark.primary, Colors.dark.secondary]}
-                  style={styles.toggleButtonGradient}
-                />
-              )}
-              <Ionicons
-                name="document-lock"
-                size={16}
-                color={
-                  viewMode === "notes"
-                    ? Colors.dark.background
-                    : Colors.dark.textSecondary
-                }
-              />
-              <Text
-                style={[
-                  styles.toggleText,
-                  viewMode === "notes" && styles.toggleTextActive,
-                ]}
-              >
-                Notes
-              </Text>
-            </ReachPressable>
-          </LinearGradient>
-        </View>
-      </View>
+      <AppsHeader
+        viewMode={viewMode}
+        loading={loading}
+        installedApps={installedApps}
+        onViewModeChange={setViewMode}
+        onAddNote={() => setNoteModalVisible(true)}
+      />
 
       <View style={styles.searchContainer}>
         <View style={styles.searchWrapper}>
@@ -705,6 +305,10 @@ export default function AppsScreen() {
             contentContainerStyle={[
               styles.appsList,
               { paddingBottom: insets.bottom + 110 },
+              filteredApps?.length === 0 && {
+                flex: 1,
+                justifyContent: "center",
+              },
             ]}
             columnWrapperStyle={styles.appsRow}
             renderItem={({ item, index }) => (
@@ -753,6 +357,10 @@ export default function AppsScreen() {
           contentContainerStyle={[
             styles.notesList,
             { paddingBottom: insets.bottom + 110 },
+            filteredNotes?.length === 0 && {
+              flex: 1,
+              justifyContent: "center",
+            },
           ]}
           showsVerticalScrollIndicator={false}
           renderItem={({ item, index }) => (
@@ -817,123 +425,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 200,
-  },
-  header: {
-    paddingHorizontal: 20,
-    position: "relative",
-    overflow: "hidden",
-  },
-  headerBlur: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderRadius: 20,
-  },
-  headerGradient: {
-    flex: 1,
-    borderRadius: 20,
-  },
-  headerContent: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 15,
-    zIndex: 1,
-    paddingTop: 8,
-  },
-  headerTextContainer: {
-    flex: 1,
-  },
-  addButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    overflow: "hidden",
-    shadowColor: Colors.dark.neonGreen,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  addButtonGradient: {
-    width: "100%",
-    height: "100%",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 2,
-    borderColor: "rgba(255, 255, 255, 0.2)",
-    borderRadius: 24,
-  },
-  toggleContainer: {
-    borderRadius: 16,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  toggleBackground: {
-    flexDirection: "row",
-    borderRadius: 16,
-    padding: 6,
-    borderWidth: 1.5,
-    borderColor: "rgba(255, 255, 255, 0.1)",
-  },
-  toggleButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-    gap: 8,
-    flex: 1,
-    justifyContent: "center",
-    position: "relative",
-    overflow: "hidden",
-  },
-  toggleButtonActive: {
-    shadowColor: Colors.dark.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  toggleButtonGradient: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderRadius: 12,
-  },
-  toggleText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: Colors.dark.textSecondary,
-    letterSpacing: 0.3,
-  },
-  toggleTextActive: {
-    color: Colors.dark.background,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "800",
-    color: Colors.dark.text,
-    letterSpacing: 0.5,
-    textShadowColor: "rgba(0, 212, 255, 0.3)",
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 8,
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: Colors.dark.textSecondary,
-    fontWeight: "500",
-    lineHeight: 20,
-    letterSpacing: 0.2,
   },
   searchContainer: {
     paddingHorizontal: 20,
@@ -1023,20 +514,12 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   appsList: {
-    paddingHorizontal: 20,
-    gap: 16,
+    gap: 10,
+    paddingHorizontal: 16,
   },
   appsRow: {
     justifyContent: "space-between",
-    marginBottom: 5,
-  },
-  appCardContainer: {
-    width: "48%",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 3,
+    paddingHorizontal: 4,
   },
   appCardPressable: {
     borderRadius: 20,
@@ -1190,8 +673,8 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "600",
     color: Colors.dark.text,
-    marginTop: 16,
-    marginBottom: 8,
+    marginTop: 10,
+    marginBottom: 3,
   },
   emptyText: {
     fontSize: 14,
@@ -1213,45 +696,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.dark.textMuted,
     fontWeight: "500",
-  },
-  appCardUnsupported: {
-    opacity: 0.7,
-    borderColor: Colors.dark.textMuted + "40",
-  },
-  categoryBadgeUnsupported: {
-    backgroundColor: Colors.dark.textMuted + "20",
-  },
-  categoryBadgeTextUnsupported: {
-    color: Colors.dark.textMuted,
-  },
-  loadingContainer: {
-    flex: 1,
-    marginBottom: 60,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  loadingSpinner: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: Colors.dark.surface,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: Colors.dark.primary + "40",
-  },
-  loadingText: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: Colors.dark.text,
-    marginBottom: 8,
-    textAlign: "center",
-  },
-  loadingSubtext: {
-    fontSize: 14,
-    color: Colors.dark.textSecondary,
-    textAlign: "center",
   },
   errorContainer: {
     flex: 1,

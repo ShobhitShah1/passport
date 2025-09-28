@@ -10,7 +10,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
 import Colors from "@/constants/Colors";
-import { useAppContext } from "@/hooks/useAppContext";
+import { useAppContext } from "@/hooks/use-app-context";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const TAB_BAR_HEIGHT = 70;
@@ -44,7 +44,7 @@ const TabThemes = {
 const SlidingNotchTabBar = ({ state, navigation }: BottomTabBarProps) => {
   const { routes, index: activeIndex } = state;
   const glowOpacity = useSharedValue(0);
-  
+
   React.useEffect(() => {
     glowOpacity.value = withTiming(1, { duration: 300 });
   }, [activeIndex]);
@@ -57,17 +57,21 @@ const SlidingNotchTabBar = ({ state, navigation }: BottomTabBarProps) => {
     <View style={styles.container}>
       {/* Dynamic background gradient based on active tab */}
       <LinearGradient
-        colors={TabThemes[routes[activeIndex]?.name as keyof typeof TabThemes]?.gradient || TabThemes.index.gradient}
+        colors={
+          TabThemes[routes[activeIndex]?.name as keyof typeof TabThemes]
+            ?.gradient || TabThemes.index.gradient
+        }
         style={styles.backgroundGradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       />
-      
+
       <View style={styles.tabItemsContainer}>
         {routes.map((route, index) => {
           const isFocused = activeIndex === index;
           const iconName = getIconName(route.name, isFocused);
-          const theme = TabThemes[route.name as keyof typeof TabThemes] || TabThemes.index;
+          const theme =
+            TabThemes[route.name as keyof typeof TabThemes] || TabThemes.index;
           const iconColor = isFocused ? theme.primary : Colors.dark.textMuted;
 
           const onPress = () => {
@@ -84,7 +88,9 @@ const SlidingNotchTabBar = ({ state, navigation }: BottomTabBarProps) => {
           return (
             <Pressable key={route.key} onPress={onPress} style={styles.tabItem}>
               {isFocused && (
-                <Animated.View style={[styles.activeTabIndicator, animatedGlowStyle]}>
+                <Animated.View
+                  style={[styles.activeTabIndicator, animatedGlowStyle]}
+                >
                   <LinearGradient
                     colors={[theme.primary, `${theme.primary}80`]}
                     style={styles.indicatorGradient}
@@ -154,7 +160,7 @@ const styles = StyleSheet.create({
     width: SCREEN_WIDTH,
     height: TAB_BAR_HEIGHT,
     backgroundColor: Colors.dark.background,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   backgroundGradient: {
     position: "absolute",
@@ -173,7 +179,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    position: 'relative',
+    position: "relative",
     paddingVertical: 12,
   },
   iconWrapper: {
@@ -183,10 +189,10 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   activeTabIndicator: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
-    left: '20%',
-    right: '20%',
+    left: "20%",
+    right: "20%",
     height: 3,
     borderRadius: 2,
     zIndex: 1,

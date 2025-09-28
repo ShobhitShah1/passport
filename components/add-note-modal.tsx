@@ -1,11 +1,7 @@
 import HolographicBackground from "@/components/HolographicBackground";
-import Button from "@/components/ui/Button";
-import Input from "@/components/ui/Input";
-import { ReachPressable } from "@/components/ui/ReachPressable";
 import Colors from "@/constants/Colors";
-import { useAppContext } from "@/hooks/useAppContext";
-import { usePasswordManager } from "@/hooks/usePasswordManager";
-import { saveSecureNotes } from "@/services/storage/secureStorage";
+import { useAppContext } from "@/hooks/use-app-context";
+import { usePasswordManager } from "@/hooks/use-password-manager";
 import { SecureNote } from "@/types";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -21,6 +17,8 @@ import {
   View,
 } from "react-native";
 import Svg, { Path } from "react-native-svg";
+import { Input } from "./input";
+import { Button, ReachPressable } from "./ui";
 
 const { height: screenHeight, width: screenWidth } = Dimensions.get("window");
 
@@ -31,7 +29,13 @@ interface AddNoteModalProps {
 }
 
 // Simplified Header
-const HolographicHeader = ({ onClose, isEditing }: { onClose: () => void; isEditing: boolean }) => {
+const HolographicHeader = ({
+  onClose,
+  isEditing,
+}: {
+  onClose: () => void;
+  isEditing: boolean;
+}) => {
   return (
     <View style={styles.holographicHeader}>
       <View style={styles.headerContainer}>
@@ -182,7 +186,11 @@ const NOTE_CATEGORIES = [
   "Other",
 ];
 
-export default function AddNoteModal({ visible, onClose, existingNote }: AddNoteModalProps) {
+export default function AddNoteModal({
+  visible,
+  onClose,
+  existingNote,
+}: AddNoteModalProps) {
   const { state, dispatch } = useAppContext();
   const { addSecureNote, updateSecureNote } = usePasswordManager();
 

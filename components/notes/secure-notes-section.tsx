@@ -3,8 +3,8 @@ import { SecureNote } from "@/types";
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { ReachPressable } from "../ui/ReachPressable";
-import { SpaceNoteCard } from "./SpaceNoteCard";
+import { ReachPressable } from "../ui";
+import { SpaceNoteCard } from "./space-note-card";
 
 interface SecureNotesSectionProps {
   notes: SecureNote[];

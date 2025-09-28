@@ -1,8 +1,8 @@
-import ChangePinModal from "@/components/modals/ChangePinModal";
-import ImportBackupModal from "@/components/modals/ImportBackupModal";
-import { ReachPressable } from "@/components/ui/ReachPressable";
+import ChangePinModal from "@/components/modals/change-pin-modal";
+import ImportBackupModal from "@/components/modals/import-backup-modal";
+import { ReachPressable } from "@/components/ui";
 import Colors from "@/constants/Colors";
-import { useAppContext } from "@/hooks/useAppContext";
+import { useAppContext } from "@/hooks/use-app-context";
 import {
   changeMasterPassword,
   clearAllData,
@@ -12,7 +12,7 @@ import {
 } from "@/services/storage/secureStorage";
 import { usePasswordStore } from "@/stores/passwordStore";
 import { UserSettings } from "@/types";
-import { ensureAuthenticated, syncAuthentication } from "@/utils/authSync";
+import { ensureAuthenticated } from "@/utils/authSync";
 import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system";
@@ -670,7 +670,7 @@ export default function SettingsTabScreen() {
           // Refresh both stores
           await Promise.all([
             loadUserData(passwordToRefresh),
-            authenticate(passwordToRefresh)
+            authenticate(passwordToRefresh),
           ]);
 
           // Update authentication state if needed
@@ -713,7 +713,9 @@ export default function SettingsTabScreen() {
         return true; // Success
       } else {
         // Import failed - throw error to let modal handle retry
-        throw new Error("Import failed: Unable to decrypt backup data. Please check your master password.");
+        throw new Error(
+          "Import failed: Unable to decrypt backup data. Please check your master password."
+        );
       }
     } catch (error: any) {
       console.error("Import error:", error);
@@ -959,7 +961,7 @@ export default function SettingsTabScreen() {
         try {
           await Promise.all([
             loadUserData(newPassword),
-            authenticate(newPassword)
+            authenticate(newPassword),
           ]);
         } catch (error) {
           console.error("Error refreshing data with new password:", error);

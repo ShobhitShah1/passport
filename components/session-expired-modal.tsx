@@ -2,17 +2,17 @@ import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect } from "react";
-import { Modal, StyleSheet, Text, View, Dimensions } from "react-native";
+import { Dimensions, Modal, StyleSheet, Text, View } from "react-native";
 import Animated, {
+  Easing,
+  runOnJS,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
-  withSequence,
-  withTiming,
   withDelay,
-  runOnJS,
-  Easing,
   withRepeat,
+  withSequence,
+  withSpring,
+  withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, {
@@ -21,8 +21,8 @@ import Svg, {
   Stop,
   LinearGradient as SvgLinearGradient,
 } from "react-native-svg";
-import { ReachPressable } from "./ui/ReachPressable";
 import Colors from "../constants/Colors";
+import { ReachPressable } from "./ui";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
@@ -117,7 +117,7 @@ export default function SessionExpiredModal({
   buttonText = "Back to Login",
 }: SessionExpiredModalProps) {
   const insets = useSafeAreaInsets();
-  
+
   // Animation values
   const backdropOpacity = useSharedValue(0);
   const modalScale = useSharedValue(0.5);
@@ -134,7 +134,7 @@ export default function SessionExpiredModal({
       backdropOpacity.value = withTiming(1, { duration: 300 });
       modalScale.value = withSpring(1, { damping: 15, stiffness: 200 });
       modalOpacity.value = withTiming(1, { duration: 300 });
-      
+
       // Icon animations
       iconScale.value = withDelay(
         200,
@@ -150,7 +150,7 @@ export default function SessionExpiredModal({
           )
         )
       );
-      
+
       // Glow animation
       glowOpacity.value = withDelay(
         400,
@@ -162,12 +162,9 @@ export default function SessionExpiredModal({
           -1
         )
       );
-      
+
       // Text animation
-      textOpacity.value = withDelay(
-        300,
-        withTiming(1, { duration: 500 })
-      );
+      textOpacity.value = withDelay(300, withTiming(1, { duration: 500 }));
     } else {
       // Exit animations
       backdropOpacity.value = withTiming(0, { duration: 200 });
@@ -200,7 +197,10 @@ export default function SessionExpiredModal({
   }));
 
   const iconContainerStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: iconScale.value }, { rotate: `${iconRotation.value}deg` }],
+    transform: [
+      { scale: iconScale.value },
+      { rotate: `${iconRotation.value}deg` },
+    ],
   }));
 
   const glowStyle = useAnimatedStyle(() => ({
@@ -228,7 +228,7 @@ export default function SessionExpiredModal({
         tint="dark"
       >
         <FloatingParticles />
-        
+
         <Animated.View style={[styles.modalContainer, modalStyle]}>
           <View style={styles.modal}>
             {/* Header with rotating icon */}
@@ -237,7 +237,13 @@ export default function SessionExpiredModal({
                 <Animated.View style={[styles.iconGlow, glowStyle]} />
                 <Svg width={80} height={80} viewBox="0 0 80 80">
                   <Defs>
-                    <SvgLinearGradient id="iconGrad" x1="0" y1="0" x2="1" y2="1">
+                    <SvgLinearGradient
+                      id="iconGrad"
+                      x1="0"
+                      y1="0"
+                      x2="1"
+                      y2="1"
+                    >
                       <Stop offset="0%" stopColor={Colors.dark.error} />
                       <Stop offset="100%" stopColor={Colors.dark.primary} />
                     </SvgLinearGradient>
@@ -267,7 +273,9 @@ export default function SessionExpiredModal({
             </Animated.View>
 
             {/* Action button */}
-            <Animated.View style={[styles.buttonContainer, buttonAnimatedStyle]}>
+            <Animated.View
+              style={[styles.buttonContainer, buttonAnimatedStyle]}
+            >
               <ReachPressable
                 style={styles.button}
                 onPress={handleClose}

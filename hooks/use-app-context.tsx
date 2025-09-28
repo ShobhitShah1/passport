@@ -7,11 +7,10 @@ import React, {
   useReducer,
   useState,
 } from "react";
-import SessionExpiredModal from "../components/SessionExpiredModal";
+import SessionExpiredModal from "../components/session-expired-modal";
 import {
   clearSession,
   createSessionToken,
-  extendSession,
   hasValidSession,
   isAppSetup,
   loadPasswords,
@@ -243,7 +242,7 @@ export function AppProvider({ children }: AppProviderProps) {
   // Let the splash screen handle all initial navigation
   useEffect(() => {
     if (!state.isAuthenticated && !state.loading) {
-      console.log('🔒 Auth state lost - user needs to re-authenticate');
+      console.log("🔒 Auth state lost - user needs to re-authenticate");
       // Don't navigate here - let session expiry modal handle this
     }
   }, [state.isAuthenticated, state.loading]);
@@ -296,7 +295,7 @@ export function AppProvider({ children }: AppProviderProps) {
   const lockApp = () => {
     dispatch({ type: "LOCK_APP" });
     // Clear session token when manually locking
-    clearSession().catch(error => 
+    clearSession().catch((error) =>
       console.warn("Failed to clear session:", error)
     );
   };

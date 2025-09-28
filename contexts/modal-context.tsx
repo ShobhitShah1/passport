@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, ReactNode } from "react";
-import UniversalModal, { ModalType } from "../components/modals/UniversalModal";
+import UniversalModal, {
+  ModalType,
+} from "../components/modals/universal-modal";
 
 interface ModalButton {
   text: string;

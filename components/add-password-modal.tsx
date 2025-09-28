@@ -1,11 +1,6 @@
 import HolographicBackground from "@/components/HolographicBackground";
-import AppIcon from "@/components/ui/AppIcon";
-import Button from "@/components/ui/Button";
-import Input from "@/components/ui/Input";
-import { ReachPressable } from "@/components/ui/ReachPressable";
 import Colors from "@/constants/Colors";
-import { useAppContext } from "@/hooks/useAppContext";
-import { useModal } from "../contexts/ModalContext";
+import { useAppContext } from "@/hooks/use-app-context";
 import { generatePassword } from "@/services/password/generator";
 import { usePasswordStore } from "@/stores/passwordStore";
 import {
@@ -43,6 +38,10 @@ import Svg, {
   Stop,
   LinearGradient as SvgLinearGradient,
 } from "react-native-svg";
+import { useModal } from "../contexts/modal-context";
+import { AppIcon } from "./icons";
+import { Input } from "./input";
+import { Button, ReachPressable } from "./ui";
 
 const { height: screenHeight, width: screenWidth } = Dimensions.get("window");
 

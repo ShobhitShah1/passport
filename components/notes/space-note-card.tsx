@@ -13,8 +13,7 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
-import { ReachPressable } from "../ui/ReachPressable";
-
+import { ReachPressable } from "../ui";
 interface SpaceNoteCardProps {
   note: SecureNote;
   index: number;

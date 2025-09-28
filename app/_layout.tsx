@@ -7,8 +7,8 @@ import React, { useEffect, useState } from "react";
 import "react-native-reanimated";
 
 import Colors from "@/constants/Colors";
-import { AppProvider } from "@/hooks/useAppContext";
-import { ModalProvider } from "../contexts/ModalContext";
+import { AppProvider } from "@/hooks/use-app-context";
+import { ModalProvider } from "../contexts/modal-context";
 import { initializeWidgets } from "@/widgets/WidgetProvider";
 import CustomSplashScreen from "@/components/SplashScreen";
 

@@ -1,5 +1,5 @@
 import Colors from "@/constants/Colors";
-import { useAppContext } from "@/hooks/useAppContext";
+import { useAppContext } from "@/hooks/use-app-context";
 import { navigationService } from "@/services/NavigationService";
 import { clearSession } from "@/services/storage/secureStorage";
 import { LinearGradient } from "expo-linear-gradient";
@@ -15,7 +15,6 @@ import Animated, {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const AnimatedView = Animated.createAnimatedComponent(View);
 
@@ -23,7 +22,6 @@ export default function IndexScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadingProgress, setLoadingProgress] = useState(0);
   const { isSetupComplete, tryAutoAuthenticate, state } = useAppContext();
-  const insets = useSafeAreaInsets();
 
   const rocketRotation = useSharedValue(0);
   const glowOpacity = useSharedValue(0.3);
@@ -182,9 +180,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  logoContainer: {
-    marginBottom: 32,
-  },
   logo: {
     width: 80,
     height: 80,
@@ -231,25 +226,6 @@ const styles = StyleSheet.create({
     top: -20,
     left: -20,
     zIndex: -1,
-  },
-  logo: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: Colors.dark.primary,
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 2,
-    borderWidth: 2,
-    borderColor: Colors.dark.neonGreen,
-    shadowColor: Colors.dark.neonGreen,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 15,
-  },
-  titleContainer: {
-    alignItems: "center",
-    marginBottom: 20,
   },
   appName: {
     fontSize: 34,

@@ -69,7 +69,12 @@
       "Bash(sed:*)",
       "Bash(del \"D:\\passport\\components\\SplashScreen.tsx\")",
       "Bash(ls:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Read(//d/passport/app/**)",
+      "Read(//d/passport/**)",
+      "Bash(dir:*)",
+      "Bash(del \"components\\cards\\password-preview-card.tsx\")",
+      "WebFetch(domain:dribbble.com)"
     ],
     "deny": [],
     "ask": []

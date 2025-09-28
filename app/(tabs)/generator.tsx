@@ -1,18 +1,11 @@
 import { HexGrid, ParticleSystem } from "@/components/HolographicBackground";
-import { ReachPressable } from "@/components/ui/ReachPressable";
+import { ReachPressable } from "@/components/ui";
 import Colors from "@/constants/Colors";
-import { useNavigationOptimization } from "@/hooks/useNavigationOptimization";
+import { useNavigationOptimization } from "@/hooks/use-navigation-optimization";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useState } from "react";
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
-import { useModal } from "../../contexts/ModalContext";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Animated, {
   cancelAnimation,
   runOnJS,
@@ -31,6 +24,7 @@ import Svg, {
   Stop,
   LinearGradient as SvgLinearGradient,
 } from "react-native-svg";
+import { useModal } from "../../contexts/modal-context";
 
 export default function GeneratorScreen() {
   const [password, setPassword] = useState("");
@@ -344,7 +338,9 @@ export default function GeneratorScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {shouldRenderAnimations && <HexGrid />}
+
       {shouldRenderAnimations && <ParticleSystem />}
+
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
@@ -692,12 +688,14 @@ const styles = StyleSheet.create({
   actionButton: {
     flex: 1,
     borderRadius: 16,
-    overflow: "visible",
+    overflow: "hidden",
     shadowColor: "#000000",
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.25,
     shadowRadius: 8,
     elevation: 4,
+    borderWidth: 2,
+    borderColor: "rgba(255, 255, 255, 0.2)",
   },
   actionButtonGradient: {
     flexDirection: "row",
@@ -706,9 +704,9 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 20,
     gap: 10,
-    borderWidth: 2,
-    borderColor: "rgba(255, 255, 255, 0.2)",
-    borderRadius: 16,
+    // borderWidth: 2,
+    // borderColor: "rgba(255, 255, 255, 0.2)",
+    // borderRadius: 16,
   },
   actionButtonText: {
     fontSize: 12,

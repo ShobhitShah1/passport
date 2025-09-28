@@ -1,18 +1,16 @@
+import { ParallaxStarfield } from "@/components/onboarding";
 import Colors from "@/constants/Colors";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Dimensions, Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, {
-  cancelAnimation,
   Easing,
   FadeIn,
   FadeOut,
   runOnJS,
-  runOnUI,
   useAnimatedStyle,
   useSharedValue,
-  withDelay,
   withRepeat,
   withSequence,
   withSpring,
@@ -20,7 +18,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const { width, height } = Dimensions.get("window");
+const { width } = Dimensions.get("window");
 
 interface OnboardingStep {
   id: number;
@@ -59,171 +57,6 @@ const onboardingSteps: OnboardingStep[] = [
     icon: "shield-checkmark",
   },
 ];
-
-const ShootingStar = ({
-  delay,
-  duration,
-}: {
-  delay: number;
-  duration: number;
-}) => {
-  const translateX = useSharedValue(width * 2);
-  const translateY = useSharedValue(-100);
-  const opacity = useSharedValue(0);
-
-  const animateStar = useCallback(() => {
-    "worklet";
-
-    const loop = () => {
-      "worklet";
-      translateX.value = Math.random() * width * 1.2 - width * 0.1;
-      translateY.value = -100;
-      opacity.value = 0;
-
-      const randomDelay = delay + Math.random() * 4000;
-
-      opacity.value = withDelay(
-        randomDelay,
-        withSequence(
-          withTiming(1, { duration: 100 }),
-          withTiming(1, { duration: duration - 600 }),
-          withTiming(0, { duration: 500 })
-        )
-      );
-
-      translateY.value = withDelay(
-        randomDelay,
-        withTiming(height + 100, {
-          duration: duration,
-          easing: Easing.linear,
-        })
-      );
-
-      translateX.value = withDelay(
-        randomDelay,
-        withTiming(
-          translateX.value - height,
-          {
-            duration: duration,
-            easing: Easing.linear,
-          },
-          (isFinished) => {
-            if (isFinished) {
-              loop();
-            }
-          }
-        )
-      );
-    };
-
-    loop();
-  }, [delay, duration]);
-
-  useEffect(() => {
-    runOnUI(animateStar)();
-
-    return () => {
-      cancelAnimation(translateX);
-      cancelAnimation(translateY);
-      cancelAnimation(opacity);
-    };
-  }, [animateStar]);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-    transform: [
-      { translateX: translateX.value },
-      { translateY: translateY.value },
-      { rotate: "-45deg" },
-    ],
-  }));
-
-  return <Animated.View style={[styles.shootingStar, animatedStyle]} />;
-};
-
-const TwinklingStar = ({ style, size }: { style: any; size: number }) => {
-  const opacity = useSharedValue(0);
-
-  useEffect(() => {
-    const randomDelay = Math.random() * 5000;
-    const timer = setTimeout(() => {
-      opacity.value = withRepeat(
-        withSequence(
-          withTiming(0.8 + Math.random() * 0.2, {
-            duration: 1500 + Math.random() * 2000,
-          }),
-          withTiming(0.3 + Math.random() * 0.2, {
-            duration: 1500 + Math.random() * 2000,
-          })
-        ),
-        -1,
-        true
-      );
-    }, randomDelay);
-
-    return () => {
-      clearTimeout(timer);
-      cancelAnimation(opacity);
-    };
-  }, []);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-  }));
-
-  return (
-    <Animated.View
-      style={[
-        styles.star,
-        { width: size, height: size, borderRadius: size / 2 },
-        style,
-        animatedStyle,
-      ]}
-    />
-  );
-};
-
-const ParallaxStarfield = () => {
-  const starsLayer1 = useMemo(
-    () =>
-      Array.from({ length: 40 }, (_, i) => ({
-        key: `s1-${i}`,
-        left: `${Math.random() * 100}%`,
-        top: `${Math.random() * 100}%`,
-        size: Math.random() * 1.5 + 0.5,
-      })),
-    []
-  );
-
-  const shootingStars = useMemo(
-    () =>
-      Array.from({ length: 4 }, (_, i) => ({
-        key: `ss-${i}`,
-        delay: i * 2000,
-        duration: 1000 + Math.random() * 2000,
-      })),
-    []
-  );
-
-  return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      {starsLayer1.map((star) => (
-        <TwinklingStar
-          key={star.key}
-          style={{ left: star.left, top: star.top }}
-          size={star.size}
-        />
-      ))}
-      {shootingStars.map((star) => (
-        <ShootingStar
-          key={star.key}
-          delay={Number(star.key)}
-          duration={star.duration}
-        />
-      ))}
-    </View>
-  );
-};
 
 const planetSizes = [10, 14, 12, 16];
 
@@ -545,17 +378,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#02000a",
-  },
-  star: {
-    position: "absolute",
-    backgroundColor: "white",
-  },
-  shootingStar: {
-    position: "absolute",
-    width: 80,
-    height: 1.5,
-    backgroundColor: "rgba(255, 255, 255, 0.8)",
-    borderRadius: 1,
   },
   topSection: {
     flexDirection: "row",

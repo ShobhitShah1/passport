@@ -1,18 +1,12 @@
 import HolographicBackground from "@/components/HolographicBackground";
-import { ReachPressable } from "@/components/ui/ReachPressable";
-import PinKeypad from "@/components/ui/PinKeypad";
 import Colors from "@/constants/Colors";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useState, useEffect } from "react";
-import {
-  Modal,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import React, { useEffect, useState } from "react";
+import { Modal, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { PinKeypad } from "../input";
+import { ReachPressable } from "../ui";
 
 interface ImportData {
   stats: {
@@ -28,7 +22,6 @@ interface ImportBackupModalProps {
   importData: ImportData | null;
   isLoading: boolean;
 }
-
 
 export default function ImportBackupModal({
   visible,
@@ -70,7 +63,6 @@ export default function ImportBackupModal({
   const handlePinBackspace = () => {
     setPin(pin.slice(0, -1));
   };
-
 
   const handleClose = () => {
     setPin("");
@@ -114,7 +106,11 @@ export default function ImportBackupModal({
               reachScale={1.1}
               pressScale={0.9}
             >
-              <Ionicons name="close-circle" size={32} color={Colors.dark.error} />
+              <Ionicons
+                name="close-circle"
+                size={32}
+                color={Colors.dark.error}
+              />
             </ReachPressable>
           </View>
 
@@ -128,7 +124,11 @@ export default function ImportBackupModal({
               <View style={styles.holoInputContainer}>
                 <View style={styles.holoInputBg}>
                   <View style={styles.holoInputHeader}>
-                    <Ionicons name="cloud-download" size={24} color={Colors.dark.neonGreen} />
+                    <Ionicons
+                      name="cloud-download"
+                      size={24}
+                      color={Colors.dark.neonGreen}
+                    />
                     <Text style={styles.holoInputTitle}>BACKUP PREVIEW</Text>
                     <View style={styles.holoLine} />
                   </View>
@@ -137,26 +137,42 @@ export default function ImportBackupModal({
                       <View style={styles.backupInfo}>
                         <View style={styles.backupTypeContainer}>
                           <View style={styles.encryptionBadge}>
-                            <Ionicons name="shield-checkmark" size={16} color={Colors.dark.neonGreen} />
+                            <Ionicons
+                              name="shield-checkmark"
+                              size={16}
+                              color={Colors.dark.neonGreen}
+                            />
                             <Text style={styles.encryptionText}>ENCRYPTED</Text>
                           </View>
                         </View>
                         <View style={styles.statsRow}>
                           <View style={styles.statCard}>
                             <View style={styles.statIconBg}>
-                              <Ionicons name="key" size={20} color={Colors.dark.primary} />
+                              <Ionicons
+                                name="key"
+                                size={20}
+                                color={Colors.dark.primary}
+                              />
                             </View>
                             <Text style={styles.statNumber}>
-                              {importData.stats.passwords === "encrypted" ? "●●●" : importData.stats.passwords}
+                              {importData.stats.passwords === "encrypted"
+                                ? "●●●"
+                                : importData.stats.passwords}
                             </Text>
                             <Text style={styles.statType}>Passwords</Text>
                           </View>
                           <View style={styles.statCard}>
                             <View style={styles.statIconBg}>
-                              <Ionicons name="document-text" size={20} color={Colors.dark.neonGreen} />
+                              <Ionicons
+                                name="document-text"
+                                size={20}
+                                color={Colors.dark.neonGreen}
+                              />
                             </View>
                             <Text style={styles.statNumber}>
-                              {importData.stats.notes === "encrypted" ? "●●●" : importData.stats.notes}
+                              {importData.stats.notes === "encrypted"
+                                ? "●●●"
+                                : importData.stats.notes}
                             </Text>
                             <Text style={styles.statType}>Notes</Text>
                           </View>
@@ -172,7 +188,11 @@ export default function ImportBackupModal({
             <View style={styles.holoInputContainer}>
               <View style={styles.holoInputBg}>
                 <View style={styles.holoInputHeader}>
-                  <Ionicons name="lock-closed" size={24} color={Colors.dark.neonGreen} />
+                  <Ionicons
+                    name="lock-closed"
+                    size={24}
+                    color={Colors.dark.neonGreen}
+                  />
                   <Text style={styles.holoInputTitle}>MASTER PIN</Text>
                   <View style={styles.holoLine} />
                 </View>
@@ -222,7 +242,10 @@ export default function ImportBackupModal({
                 <LinearGradient
                   colors={
                     pin.length !== 4
-                      ? ["rgba(255, 255, 255, 0.1)", "rgba(255, 255, 255, 0.05)"]
+                      ? [
+                          "rgba(255, 255, 255, 0.1)",
+                          "rgba(255, 255, 255, 0.05)",
+                        ]
                       : [Colors.dark.primary, Colors.dark.neonGreen]
                   }
                   style={styles.actionButtonGradient}
@@ -425,7 +448,6 @@ const styles = StyleSheet.create({
     color: Colors.dark.textSecondary,
     fontWeight: "500",
   },
-
 
   // Action Panel
   actionPanel: {

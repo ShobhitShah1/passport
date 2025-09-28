@@ -1,18 +1,12 @@
 import HolographicBackground from "@/components/HolographicBackground";
-import { ReachPressable } from "@/components/ui/ReachPressable";
-import PinKeypad from "@/components/ui/PinKeypad";
 import Colors from "@/constants/Colors";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useState, useEffect } from "react";
-import {
-  Modal,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import React, { useEffect, useState } from "react";
+import { Modal, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { PinKeypad } from "../input";
+import { ReachPressable } from "../ui";
 
 interface ChangePinModalProps {
   visible: boolean;
@@ -20,7 +14,6 @@ interface ChangePinModalProps {
   onChangePinComplete: (currentPin: string, newPin: string) => Promise<void>;
   isLoading: boolean;
 }
-
 
 export default function ChangePinModal({
   visible,
@@ -46,10 +39,14 @@ export default function ChangePinModal({
 
   const getCurrentPin = () => {
     switch (step) {
-      case 1: return currentPin;
-      case 2: return newPin;
-      case 3: return confirmPin;
-      default: return "";
+      case 1:
+        return currentPin;
+      case 2:
+        return newPin;
+      case 3:
+        return confirmPin;
+      default:
+        return "";
     }
   };
 
@@ -90,18 +87,28 @@ export default function ChangePinModal({
     const pin = getCurrentPin();
     const newPinValue = pin.slice(0, -1);
     switch (step) {
-      case 1: setCurrentPin(newPinValue); break;
-      case 2: setNewPin(newPinValue); break;
-      case 3: setConfirmPin(newPinValue); break;
+      case 1:
+        setCurrentPin(newPinValue);
+        break;
+      case 2:
+        setNewPin(newPinValue);
+        break;
+      case 3:
+        setConfirmPin(newPinValue);
+        break;
     }
   };
 
   const canContinue = () => {
     switch (step) {
-      case 1: return currentPin.length === 4;
-      case 2: return newPin.length === 4;
-      case 3: return confirmPin === newPin && confirmPin.length === 4;
-      default: return false;
+      case 1:
+        return currentPin.length === 4;
+      case 2:
+        return newPin.length === 4;
+      case 3:
+        return confirmPin === newPin && confirmPin.length === 4;
+      default:
+        return false;
     }
   };
 
@@ -128,19 +135,27 @@ export default function ChangePinModal({
 
   const getStepTitle = () => {
     switch (step) {
-      case 1: return "CURRENT PIN";
-      case 2: return "NEW PIN";
-      case 3: return "CONFIRM PIN";
-      default: return "";
+      case 1:
+        return "CURRENT PIN";
+      case 2:
+        return "NEW PIN";
+      case 3:
+        return "CONFIRM PIN";
+      default:
+        return "";
     }
   };
 
   const getStepSubtitle = () => {
     switch (step) {
-      case 1: return "Verify your current PIN";
-      case 2: return "Create a new secure PIN";
-      case 3: return "Confirm your new PIN";
-      default: return "";
+      case 1:
+        return "Verify your current PIN";
+      case 2:
+        return "Create a new secure PIN";
+      case 3:
+        return "Confirm your new PIN";
+      default:
+        return "";
     }
   };
 
@@ -169,9 +184,7 @@ export default function ChangePinModal({
               </View>
               <View style={styles.headerTextContainer}>
                 <Text style={styles.modalTitle}>Change Master PIN</Text>
-                <Text style={styles.modalSubtitle}>
-                  {getStepSubtitle()}
-                </Text>
+                <Text style={styles.modalSubtitle}>{getStepSubtitle()}</Text>
               </View>
             </View>
 
@@ -181,7 +194,11 @@ export default function ChangePinModal({
               reachScale={1.1}
               pressScale={0.9}
             >
-              <Ionicons name="close-circle" size={32} color={Colors.dark.error} />
+              <Ionicons
+                name="close-circle"
+                size={32}
+                color={Colors.dark.error}
+              />
             </ReachPressable>
           </View>
 
@@ -194,7 +211,11 @@ export default function ChangePinModal({
             <View style={styles.holoInputContainer}>
               <View style={styles.holoInputBg}>
                 <View style={styles.holoInputHeader}>
-                  <Ionicons name="trending-up" size={24} color={Colors.dark.neonGreen} />
+                  <Ionicons
+                    name="trending-up"
+                    size={24}
+                    color={Colors.dark.neonGreen}
+                  />
                   <Text style={styles.holoInputTitle}>SECURITY PROTOCOL</Text>
                   <View style={styles.holoLine} />
                 </View>
@@ -210,7 +231,8 @@ export default function ChangePinModal({
                           style={[
                             styles.stepProgressCircle,
                             stepNum <= step && styles.stepProgressCircleActive,
-                            stepNum < step && styles.stepProgressCircleCompleted,
+                            stepNum < step &&
+                              styles.stepProgressCircleCompleted,
                           ]}
                         >
                           {stepNum < step ? (
@@ -219,7 +241,9 @@ export default function ChangePinModal({
                             <Ionicons
                               name={icon as any}
                               size={16}
-                              color={stepNum <= step ? "#000" : Colors.dark.textMuted}
+                              color={
+                                stepNum <= step ? "#000" : Colors.dark.textMuted
+                              }
                             />
                           )}
                         </View>
@@ -235,7 +259,8 @@ export default function ChangePinModal({
                           <View
                             style={[
                               styles.stepProgressConnector,
-                              stepNum < step && styles.stepProgressConnectorActive,
+                              stepNum < step &&
+                                styles.stepProgressConnectorActive,
                             ]}
                           />
                         )}
@@ -250,7 +275,11 @@ export default function ChangePinModal({
             <View style={styles.holoInputContainer}>
               <View style={styles.holoInputBg}>
                 <View style={styles.holoInputHeader}>
-                  <Ionicons name="lock-closed" size={24} color={Colors.dark.neonGreen} />
+                  <Ionicons
+                    name="lock-closed"
+                    size={24}
+                    color={Colors.dark.neonGreen}
+                  />
                   <Text style={styles.holoInputTitle}>{getStepTitle()}</Text>
                   <View style={styles.holoLine} />
                 </View>
@@ -259,20 +288,32 @@ export default function ChangePinModal({
                   {step === 3 && confirmPin.length > 0 && (
                     <View style={styles.pinMatchContainer}>
                       <Ionicons
-                        name={confirmPin === newPin ? "checkmark-circle" : "close-circle"}
+                        name={
+                          confirmPin === newPin
+                            ? "checkmark-circle"
+                            : "close-circle"
+                        }
                         size={20}
-                        color={confirmPin === newPin ? Colors.dark.neonGreen : Colors.dark.error}
+                        color={
+                          confirmPin === newPin
+                            ? Colors.dark.neonGreen
+                            : Colors.dark.error
+                        }
                       />
                       <Text
                         style={[
                           styles.pinMatchText,
                           {
                             color:
-                              confirmPin === newPin ? Colors.dark.neonGreen : Colors.dark.error,
+                              confirmPin === newPin
+                                ? Colors.dark.neonGreen
+                                : Colors.dark.error,
                           },
                         ]}
                       >
-                        {confirmPin === newPin ? "PINs match perfectly" : "PINs don't match"}
+                        {confirmPin === newPin
+                          ? "PINs match perfectly"
+                          : "PINs don't match"}
                       </Text>
                     </View>
                   )}
@@ -312,7 +353,10 @@ export default function ChangePinModal({
                 <LinearGradient
                   colors={
                     !canContinue() || isLoading
-                      ? ["rgba(255, 255, 255, 0.1)", "rgba(255, 255, 255, 0.05)"]
+                      ? [
+                          "rgba(255, 255, 255, 0.1)",
+                          "rgba(255, 255, 255, 0.05)",
+                        ]
                       : [Colors.dark.primary, Colors.dark.neonGreen]
                   }
                   style={styles.actionButtonGradient}
@@ -322,7 +366,9 @@ export default function ChangePinModal({
                       styles.actionButtonText,
                       {
                         color:
-                          !canContinue() || isLoading ? Colors.dark.textMuted : "#000",
+                          !canContinue() || isLoading
+                            ? Colors.dark.textMuted
+                            : "#000",
                       },
                     ]}
                   >
@@ -513,7 +559,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.neonGreen,
   },
 
-
   // PIN Match Status
   pinMatchContainer: {
     flexDirection: "row",
@@ -526,7 +571,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "500",
   },
-
 
   // Action Panel
   actionPanel: {
